@@ -1,6 +1,46 @@
-import { App, PluginSettingTab, Setting, Notice, ButtonComponent } from "obsidian";
+import { App, PluginSettingTab, Setting, Notice, ButtonComponent, TFolder, AbstractInputSuggest } from "obsidian";
 import type LearnLanguagePlugin from "./main";
 import { LANGUAGE_LOCALE_MAP } from "./types";
+
+/**
+ * Folder suggester for folder path inputs
+ */
+class FolderSuggest extends AbstractInputSuggest<TFolder> {
+	private inputEl: HTMLInputElement;
+
+	constructor(app: App, inputEl: HTMLInputElement) {
+		super(app, inputEl);
+		this.inputEl = inputEl;
+	}
+
+	getSuggestions(inputStr: string): TFolder[] {
+		const abstractFiles = this.app.vault.getAllLoadedFiles();
+		const folders: TFolder[] = [];
+		const lowerCaseInputStr = inputStr.toLowerCase();
+
+		abstractFiles.forEach((folder) => {
+			if (
+				folder instanceof TFolder &&
+				folder.path.toLowerCase().contains(lowerCaseInputStr) &&
+				!folder.path.includes("_assets")
+			) {
+				folders.push(folder);
+			}
+		});
+
+		return folders.sort((a, b) => a.path.localeCompare(b.path));
+	}
+
+	renderSuggestion(folder: TFolder, el: HTMLElement): void {
+		el.setText(folder.path);
+	}
+
+	selectSuggestion(folder: TFolder): void {
+		this.inputEl.value = folder.path;
+		this.inputEl.trigger("input");
+		this.close();
+	}
+}
 
 export class LearnLanguageSettingTab extends PluginSettingTab {
 	plugin: LearnLanguagePlugin;
@@ -62,46 +102,58 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Dictionary folder")
 			.setDesc("Folder containing dictionary entries")
-			.addText(text => text
-				.setPlaceholder("10. Dictionary")
-				.setValue(this.plugin.settings.dictionaryFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.dictionaryFolder = value;
-					await this.plugin.saveSettings();
-				}));
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search
+					.setPlaceholder("10. Dictionary")
+					.setValue(this.plugin.settings.dictionaryFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.dictionaryFolder = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName("Verbs folder")
 			.setDesc("Folder containing verb entries (optional, uses dictionary if empty)")
-			.addText(text => text
-				.setPlaceholder("15. Verbs")
-				.setValue(this.plugin.settings.verbsFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.verbsFolder = value;
-					await this.plugin.saveSettings();
-				}));
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search
+					.setPlaceholder("15. Verbs")
+					.setValue(this.plugin.settings.verbsFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.verbsFolder = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName("Grammar folder")
 			.setDesc("Folder containing grammar resources")
-			.addText(text => text
-				.setPlaceholder("30. Grammar")
-				.setValue(this.plugin.settings.grammarFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.grammarFolder = value;
-					await this.plugin.saveSettings();
-				}));
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search
+					.setPlaceholder("30. Grammar")
+					.setValue(this.plugin.settings.grammarFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.grammarFolder = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName("Templates folder")
 			.setDesc("Folder containing note templates")
-			.addText(text => text
-				.setPlaceholder("90. TEMPLATES")
-				.setValue(this.plugin.settings.templatesFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.templatesFolder = value;
-					await this.plugin.saveSettings();
-				}));
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search
+					.setPlaceholder("90. TEMPLATES")
+					.setValue(this.plugin.settings.templatesFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.templatesFolder = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		// =====================
 		// Classification Files Section
