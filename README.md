@@ -35,9 +35,16 @@ A flexible language learning management plugin for Obsidian that supports **any 
 
 ### 🔍 Advanced Filtering
 - Filter by any property (target word, source word, Type, Context, Revision)
+- **Type-ahead search** for target and source word filters (real-time filtering as you type)
 - Hierarchical tag expansion (e.g., `#verbe/régulier/1` matches `#verbe`)
 - Locale-aware sorting based on target language
 - Filter state persistence
+
+### 📝 Embed Dictionary in Notes
+- Use the `learn-dictionary` code block to embed an interactive dictionary directly in any note
+- Full filtering and pagination support within the embedded view
+- Same UI and functionality as the sidebar view
+- Configure initial filters via YAML-like options
 
 ## Installation
 
@@ -131,6 +138,65 @@ Relations::
 Revision:: 1
 Project:: [[Learn French]]
 ```
+
+### Embedding Dictionary in Notes
+
+You can embed an interactive dictionary view directly in any note using the `learn-dictionary` code block:
+
+````markdown
+```learn-dictionary
+type: verb
+context: A1
+pageSize: 25
+```
+````
+
+#### Available Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `targetWord` | Initial filter for target word (type-ahead search) | `all` |
+| `sourceWord` | Initial filter for source word (type-ahead search) | `all` |
+| `type` | Filter by type (verb, noun, expression, etc.) | `all` |
+| `context` | Filter by context (A1, A2, social, etc.) | `all` |
+| `revision` | Filter by revision status | `all` |
+| `study` | Study mode (`no`, `yes`, `spanish`) | `no` |
+| `limit` | Maximum number of entries to load | no limit |
+| `pageSize` | Entries per page | `50` |
+| `showStudy` | Show study mode toggle | `true` |
+| `showPagination` | Show pagination controls | `true` |
+
+#### Examples
+
+**Show only verbs with context A1:**
+````markdown
+```learn-dictionary
+type: verb
+context: A1
+pageSize: 20
+```
+````
+
+**Simple embedded dictionary with 100 entries max:**
+````markdown
+```learn-dictionary
+limit: 100
+showStudy: false
+```
+````
+
+**Full dictionary with all options:**
+````markdown
+```learn-dictionary
+type: expression
+context: social
+pageSize: 50
+showStudy: true
+showPagination: true
+```
+````
+
+> **Note**: The embedded dictionary uses the same `DictionaryComponent` as the sidebar view, so all interactive features (type-ahead search, filters, pagination, study mode) work identically.
 
 ### Global API (Dataview Compatibility)
 
@@ -254,8 +320,12 @@ learn-language-plugin/
 │   │   ├── TermService.ts        # Term CRUD operations
 │   │   └── FilterService.ts      # Filtering logic
 │   ├── views/
-│   │   ├── DictionaryView.ts     # Dictionary browser
-│   │   └── VerbsView.ts          # Verbs browser
+│   │   ├── DictionaryView.ts     # Dictionary browser (sidebar)
+│   │   └── VerbsView.ts          # Verbs browser (sidebar)
+│   ├── components/
+│   │   └── DictionaryComponent.ts # Reusable dictionary UI component
+│   ├── processors/
+│   │   └── DictionaryCodeBlockProcessor.ts # Embed dictionary in notes
 │   └── modals/
 │       └── TermModal.ts          # Term create/edit modal
 ├── styles.css               # Plugin styles

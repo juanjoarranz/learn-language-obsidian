@@ -1,0 +1,1 @@
+export { registerDictionaryCodeBlockProcessor } from "./DictionaryCodeBlockProcessor";

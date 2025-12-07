@@ -19,6 +19,7 @@ import {
 import { DictionaryView, VerbsView } from "./views";
 import { TermModal, AskAIModal } from "./modals";
 import { LearnLanguageSettingTab } from "./settings";
+import { registerDictionaryCodeBlockProcessor } from "./processors";
 
 export default class LearnLanguagePlugin extends Plugin {
 	settings: LearnLanguageSettings = DEFAULT_SETTINGS;
@@ -62,6 +63,17 @@ export default class LearnLanguagePlugin extends Plugin {
 		this.registerView(
 			VIEW_TYPE_VERBS,
 			(leaf) => new VerbsView(leaf, this)
+		);
+
+		// Register code block processor for embedding dictionary in notes
+		this.registerMarkdownCodeBlockProcessor(
+			"learn-dictionary",
+			registerDictionaryCodeBlockProcessor(
+				this.app,
+				this.settings,
+				this.dictionaryService,
+				this.filterService
+			)
 		);
 
 		// Register commands
