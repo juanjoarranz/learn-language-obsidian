@@ -1,0 +1,24 @@
+{
+  "id": "learn-language",
+  "name": "Learn Language",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Advanced Learn Language Management for Obsidian",
+  "author": "Juanjo Arranz",
+  "authorUrl": "https://github.com/juanjoarranz",
+  "isDesktopOnly": false,
+  "keywords": [
+    "language",
+    "learning",
+    "dictionary",
+    "vocabulary",
+    "flashcards",
+    "verbs",
+    "conjugation",
+    "grammar",
+    "study",
+    "french",
+    "spanish",
+    "openai"
+  ]
+}

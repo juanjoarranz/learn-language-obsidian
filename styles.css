@@ -1,0 +1,435 @@
+/* =============================================
+   Learn Language Plugin - Styles
+   ============================================= */
+
+/* =============================================
+   General View Styles
+   ============================================= */
+
+.learn-language-view {
+	padding: 16px;
+	overflow: auto;
+}
+
+.learn-language-view h2 {
+	margin: 0 0 16px 0;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* =============================================
+   Filter Styles
+   ============================================= */
+
+.ll-filters {
+	margin-bottom: 16px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ll-filter-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+}
+
+.ll-filter-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+	transition: background 0.2s ease;
+}
+
+.ll-filter-item.ll-filter-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ll-filter-item.ll-filter-active .dropdown {
+	background: var(--background-primary);
+}
+
+.ll-filter-label {
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.ll-filter-item .dropdown {
+	min-width: 100px;
+}
+
+/* =============================================
+   Table Styles
+   ============================================= */
+
+.ll-table-container {
+	overflow-x: auto;
+}
+
+.ll-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+
+.ll-table thead {
+	position: sticky;
+	top: 0;
+	background: var(--background-primary);
+	z-index: 10;
+}
+
+.ll-table th {
+	text-align: left;
+	padding: 10px 12px;
+	font-weight: 600;
+	border-bottom: 2px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.ll-table td {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	vertical-align: top;
+}
+
+.ll-table tbody tr:hover {
+	background: var(--background-secondary-alt);
+}
+
+.ll-table tbody tr:nth-child(even) {
+	background: var(--background-secondary);
+}
+
+.ll-table tbody tr:nth-child(even):hover {
+	background: var(--background-secondary-alt);
+}
+
+/* Table cell specific styles */
+.ll-tags {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.ll-examples {
+	font-size: 13px;
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.ll-conjugation {
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.ll-empty {
+	color: var(--text-faint);
+}
+
+/* =============================================
+   Verbs Table Specific
+   ============================================= */
+
+.ll-verbs-table th:nth-child(1),
+.ll-verbs-table td:nth-child(1) {
+	min-width: 120px;
+}
+
+.ll-verbs-table th:nth-child(2),
+.ll-verbs-table td:nth-child(2) {
+	min-width: 100px;
+}
+
+.ll-verbs-table th:nth-child(3),
+.ll-verbs-table td:nth-child(3) {
+	width: 40px;
+	text-align: center;
+}
+
+/* =============================================
+   Study Mode Styles
+   ============================================= */
+
+.ll-study-row {
+	cursor: pointer;
+}
+
+.ll-study-question {
+	padding: 8px 0;
+}
+
+.ll-study-question h4 {
+	margin: 0;
+	padding: 8px 12px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.2s ease;
+}
+
+.ll-study-question h4:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ll-study-answer {
+	padding: 12px;
+	margin-top: 8px;
+	background: var(--background-primary-alt);
+	border-radius: 6px;
+	border-left: 3px solid var(--interactive-accent);
+}
+
+.ll-study-answer.ll-hidden {
+	display: none;
+}
+
+.ll-answer-text {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.ll-answer-type {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-left: 8px;
+}
+
+.ll-answer-examples {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+	font-style: italic;
+	color: var(--text-muted);
+}
+
+/* Collapsible indicator */
+.ll-collapsible::before {
+	content: "▶";
+	display: inline-block;
+	margin-right: 8px;
+	font-size: 10px;
+	transition: transform 0.2s ease;
+}
+
+.ll-study-answer:not(.ll-hidden) + .ll-study-question .ll-collapsible::before,
+.ll-study-question:has(+ .ll-study-answer:not(.ll-hidden)) .ll-collapsible::before {
+	transform: rotate(90deg);
+}
+
+/* =============================================
+   Pagination Styles
+   ============================================= */
+
+.ll-pagination {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 16px 0;
+	margin-top: 16px;
+	border-top: 1px solid var(--background-modifier-border);
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.ll-pagination-info {
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+.ll-pagination-buttons {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.ll-page-size {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+
+/* =============================================
+   No Results
+   ============================================= */
+
+.ll-no-results {
+	text-align: center;
+	padding: 40px 20px;
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+/* =============================================
+   Modal Styles
+   ============================================= */
+
+.ll-term-modal,
+.ll-ask-ai-modal {
+	width: 500px;
+	max-width: 90vw;
+}
+
+.ll-term-form .setting-item {
+	border: none;
+	padding: 8px 0;
+}
+
+.ll-term-form textarea {
+	min-height: 80px;
+}
+
+.ll-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 20px;
+	padding-top: 16px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* =============================================
+   Settings Styles
+   ============================================= */
+
+.ll-openai-status {
+	margin: 16px 0;
+	padding: 12px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+}
+
+.ll-openai-status p {
+	margin: 4px 0;
+	font-size: 13px;
+}
+
+.ll-status-ok {
+	color: var(--text-success);
+}
+
+.ll-status-warning {
+	color: var(--text-warning);
+}
+
+.ll-status-info {
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+	font-size: 11px;
+}
+
+.ll-openai-actions {
+	margin-top: 16px;
+}
+
+.ll-debug-info {
+	margin-top: 32px;
+	padding: 16px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.ll-debug-info h3 {
+	margin-top: 0;
+	font-size: 14px;
+}
+
+/* =============================================
+   Legacy CSS Class Support (from original implementation)
+   ============================================= */
+
+/* ja-readable: Adjusts readable line width */
+.ja-readable {
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+/* ja-dictionary: Container styling for dictionary views */
+.ja-dictionary .table-view-table {
+	width: 100%;
+}
+
+/* ja-mobile: Mobile-specific adjustments */
+.ja-mobile .table-view-table {
+	font-size: 12px;
+}
+
+.ja-mobile .table-view-table th,
+.ja-mobile .table-view-table td {
+	padding: 6px 8px;
+}
+
+/* ja-sticky-header: Sticky table headers */
+.ja-sticky-header .table-view-table thead {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: var(--background-primary);
+}
+
+/* ja-table-verbs: Verb table column widths */
+.ja-table-verbs .table-view-table th:first-child,
+.ja-table-verbs .table-view-table td:first-child {
+	min-width: 100px;
+}
+
+/* ja-table-alternating: Alternating row backgrounds */
+.ja-table-alternating .table-view-table tbody tr:nth-child(even) {
+	background: var(--background-secondary);
+}
+
+/* ja-filter-active: Highlighted active filter button */
+.ja-filter-active,
+.button-default.ja-filter-active {
+	background: var(--interactive-accent) !important;
+	color: var(--text-on-accent) !important;
+}
+
+/* ja-collapsible: Collapsible header in study mode */
+.ja-collapsible {
+	cursor: pointer;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* ja-isMobile: Mobile detection class */
+.ja-isMobile {
+	font-size: 12px;
+}
+
+/* =============================================
+   Responsive Adjustments
+   ============================================= */
+
+@media (max-width: 768px) {
+	.ll-filter-row {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.ll-filter-item {
+		justify-content: space-between;
+	}
+
+	.ll-pagination {
+		flex-direction: column;
+		text-align: center;
+	}
+
+	.ll-table {
+		font-size: 12px;
+	}
+
+	.ll-table th,
+	.ll-table td {
+		padding: 6px 8px;
+	}
+}
