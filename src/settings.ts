@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting, Notice, ButtonComponent } from "obsidian";
 import type LearnLanguagePlugin from "./main";
+import { LANGUAGE_LOCALE_MAP } from "./types";
 
 export class LearnLanguageSettingTab extends PluginSettingTab {
 	plugin: LearnLanguagePlugin;
@@ -20,27 +21,38 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 		// =====================
 		containerEl.createEl("h2", { text: "Language Configuration" });
 
+		// Get available languages from the locale map (sorted alphabetically)
+		const availableLanguages = Object.keys(LANGUAGE_LOCALE_MAP).sort();
+
 		new Setting(containerEl)
 			.setName("Target language")
-			.setDesc("The language you are learning (e.g., French, German, Italian)")
-			.addText(text => text
-				.setPlaceholder("French")
-				.setValue(this.plugin.settings.targetLanguage)
-				.onChange(async (value) => {
-					this.plugin.settings.targetLanguage = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc("The language you are learning")
+			.addDropdown(dropdown => {
+				availableLanguages.forEach(lang => {
+					dropdown.addOption(lang, lang);
+				});
+				dropdown
+					.setValue(this.plugin.settings.targetLanguage)
+					.onChange(async (value) => {
+						this.plugin.settings.targetLanguage = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName("Source language")
-			.setDesc("Your native/source language (e.g., Spanish, English)")
-			.addText(text => text
-				.setPlaceholder("Spanish")
-				.setValue(this.plugin.settings.sourceLanguage)
-				.onChange(async (value) => {
-					this.plugin.settings.sourceLanguage = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc("Your native/source language")
+			.addDropdown(dropdown => {
+				availableLanguages.forEach(lang => {
+					dropdown.addOption(lang, lang);
+				});
+				dropdown
+					.setValue(this.plugin.settings.sourceLanguage)
+					.onChange(async (value) => {
+						this.plugin.settings.sourceLanguage = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		// =====================
 		// Folder Paths Section
