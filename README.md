@@ -160,7 +160,7 @@ pageSize: 25
 | `type` | Filter by type (verb, noun, expression, etc.) | `all` |
 | `context` | Filter by context (A1, A2, social, etc.) | `all` |
 | `revision` | Filter by revision status | `all` |
-| `study` | Study mode (`no`, `yes`, `spanish`) | `no` |
+| `study` | Study mode (`no`, `yes`, `source`) | `no` |
 | `limit` | Maximum number of entries to load | no limit |
 | `pageSize` | Entries per page | `50` |
 | `showStudy` | Show study mode toggle | `true` |
@@ -311,27 +311,58 @@ npm run build
 ```
 learn-language-plugin/
 ├── src/
-│   ├── main.ts              # Plugin entry point
-│   ├── types.ts             # TypeScript types and interfaces
-│   ├── settings.ts          # Settings tab
+│   ├── main.ts                    # Plugin entry point
+│   ├── types.ts                   # TypeScript types and interfaces
+│   ├── settings.ts                # Settings tab
 │   ├── services/
-│   │   ├── DictionaryService.ts  # Data management
-│   │   ├── OpenAIService.ts      # AI integration
-│   │   ├── TermService.ts        # Term CRUD operations
-│   │   └── FilterService.ts      # Filtering logic
+│   │   ├── DictionaryService.ts   # Data management
+│   │   ├── OpenAIService.ts       # AI integration
+│   │   ├── TermService.ts         # Term CRUD operations
+│   │   └── FilterService.ts       # Filtering logic
+│   ├── context/
+│   │   └── LearnLanguageContext.tsx  # React context provider
+│   ├── hooks/
+│   │   ├── useFilters.ts          # Filter state management hook
+│   │   ├── usePagination.ts       # Pagination hook
+│   │   ├── useFilteredEntries.ts  # Filtered data hook
+│   │   ├── useTypeAhead.ts        # Type-ahead search hook
+│   │   └── useDebounce.ts         # Debounce utility hook
 │   ├── views/
-│   │   ├── DictionaryView.ts     # Dictionary browser (sidebar)
-│   │   └── VerbsView.ts          # Verbs browser (sidebar)
+│   │   ├── DictionaryView.tsx     # Dictionary sidebar (React)
+│   │   └── VerbsView.tsx          # Verbs sidebar (React)
 │   ├── components/
-│   │   └── DictionaryComponent.ts # Reusable dictionary UI component
+│   │   ├── dictionary/
+│   │   │   └── DictionaryComponent.tsx  # Main dictionary component
+│   │   ├── verbs/
+│   │   │   ├── VerbsComponent.tsx       # Main verbs component
+│   │   │   └── VerbsTable.tsx           # Verbs table with conjugations
+│   │   ├── filters/
+│   │   │   ├── TypeAheadFilter.tsx      # Type-ahead search input
+│   │   │   ├── DropdownFilter.tsx       # Dropdown select filter
+│   │   │   └── StudyToggle.tsx          # Study mode toggle
+│   │   └── table/
+│   │       ├── DictionaryTable.tsx      # Dictionary entries table
+│   │       └── Pagination.tsx           # Pagination controls
 │   ├── processors/
-│   │   └── DictionaryCodeBlockProcessor.ts # Embed dictionary in notes
+│   │   └── DictionaryCodeBlockProcessor.tsx  # Embed dictionary in notes
+│   ├── utils/
+│   │   └── reactMount.tsx         # React mounting utilities
 │   └── modals/
-│       └── TermModal.ts          # Term create/edit modal
-├── styles.css               # Plugin styles
-├── manifest.json            # Plugin manifest
-└── package.json             # NPM configuration
+│       └── TermModal.ts           # Term create/edit modal
+├── styles.css                     # Plugin styles
+├── manifest.json                  # Plugin manifest
+├── package.json                   # NPM configuration
+└── tsconfig.json                  # TypeScript config (JSX support)
 ```
+
+### React Architecture
+
+The plugin uses **React 18** for all UI components:
+
+- **Context Provider** (`LearnLanguageContext`): Shares `app`, `settings`, `filterService`, and `dictionaryService` across all components
+- **Custom Hooks**: Encapsulate state logic for filters, pagination, debouncing, and data fetching
+- **Component Composition**: Modular components for filters, tables, and controls
+- **React Mounting**: Views use `createRoot()` for mounting React components within Obsidian's ItemView system
 
 ## License
 
