@@ -112,12 +112,12 @@ export function VerbsComponent({
 	// Update output count when filtered entries change
 	useEffect(() => {
 		setOutputCount(filteredEntries.length);
-	}, [filteredEntries.length, setOutputCount]);
+	}, [filteredEntries.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Reset page when filters change
 	useEffect(() => {
 		resetPage();
-	}, [filters, resetPage]);
+	}, [filters.targetWord, filters.sourceWord, filters.type, filters.context, filters.revision, filters.study]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Get unique values for dropdowns
 	const fOptions = useMemo(

@@ -150,14 +150,20 @@ export function useTypeAhead(
 	const [inputValue, setInputValue] = useState(initialValue === "all" ? "" : initialValue);
 	const debouncedValue = useDebounce(inputValue, delay);
 	const isFirstRender = useRef(true);
+	const onChangeRef = useRef(onChange);
+
+	// Keep the ref updated with the latest onChange
+	useEffect(() => {
+		onChangeRef.current = onChange;
+	});
 
 	useEffect(() => {
 		if (isFirstRender.current) {
 			isFirstRender.current = false;
 			return;
 		}
-		onChange(debouncedValue || "all");
-	}, [debouncedValue, onChange]);
+		onChangeRef.current(debouncedValue || "all");
+	}, [debouncedValue]); // Only depend on debouncedValue, not onChange
 
 	const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
 		setInputValue(e.target.value);
@@ -165,8 +171,8 @@ export function useTypeAhead(
 
 	const handleClear = useCallback(() => {
 		setInputValue("");
-		onChange("all");
-	}, [onChange]);
+		onChangeRef.current("all");
+	}, []);
 
 	const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Escape") {

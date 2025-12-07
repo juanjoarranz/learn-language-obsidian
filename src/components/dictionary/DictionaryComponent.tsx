@@ -65,12 +65,12 @@ export function DictionaryComponent({
 	// Update output count when filtered entries change
 	useEffect(() => {
 		setOutputCount(filteredEntries.length);
-	}, [filteredEntries.length, setOutputCount]);
+	}, [filteredEntries.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Reset page when filters change
 	useEffect(() => {
 		resetPage();
-	}, [filters, resetPage]);
+	}, [filters.targetWord, filters.sourceWord, filters.type, filters.context, filters.revision, filters.study]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Get unique values for dropdowns
 	const typeOptions = useMemo(
@@ -156,6 +156,20 @@ export function DictionaryComponent({
 					)}
 				</div>
 			</div>
+
+			{/* Pagination */}
+			{showPagination && (
+				<Pagination
+					pagination={pagination}
+					currentPage={currentPage}
+					totalPages={totalPages}
+					hasNext={hasNext}
+					hasPrev={hasPrev}
+					onNext={nextPage}
+					onPrev={prevPage}
+					onPageSizeChange={handlePageSizeChange}
+				/>
+			)}
 
 			{/* Table */}
 			<div className="ll-table-container">
