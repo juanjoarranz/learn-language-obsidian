@@ -1,12 +1,17 @@
 # Learn Language Plugin for Obsidian
 
-An advanced language learning management plugin for Obsidian, featuring dictionary management, verb conjugation reference, interactive filtering, and OpenAI integration for AI-assisted term creation.
+A flexible language learning management plugin for Obsidian that supports **any language pair**. Features dictionary management, verb conjugation reference, interactive filtering, and OpenAI integration for AI-assisted term creation.
 
 ## Features
 
+### 🌍 Multi-Language Support
+- **Configurable language pair**: Learn any language from any source language
+- Supports 25+ languages with automatic locale-based sorting
+- Dynamic UI labels based on your configured languages
+
 ### 📚 Dictionary Management
 - View and filter all dictionary entries from your vault
-- Advanced filtering by French term, Spanish translation, type, context, and revision status
+- Advanced filtering by target word, source translation, type, context, and revision status
 - Pagination support for large dictionaries
 - Quick access via ribbon icon or command palette
 
@@ -18,7 +23,7 @@ An advanced language learning management plugin for Obsidian, featuring dictiona
 
 ### 📖 Study Mode (Flashcards)
 - Toggle between normal view and study mode
-- French → Spanish or Spanish → French directions
+- Target → Source or Source → Target directions
 - Collapsible answers for self-testing
 - Works in both Dictionary and Verbs views
 
@@ -29,9 +34,9 @@ An advanced language learning management plugin for Obsidian, featuring dictiona
 - Auto-sync of type/context files with OpenAI Assistant
 
 ### 🔍 Advanced Filtering
-- Filter by any property (French, Spanish, Type, Context, Revision)
+- Filter by any property (target word, source word, Type, Context, Revision)
 - Hierarchical tag expansion (e.g., `#verbe/régulier/1` matches `#verbe`)
-- Locale-aware sorting (French language)
+- Locale-aware sorting based on target language
 - Filter state persistence
 
 ## Installation
@@ -60,17 +65,29 @@ Copy `main.js`, `manifest.json`, and `styles.css` to your vault's `.obsidian/plu
 
 Go to Settings → Learn Language to configure:
 
+### Language Configuration
+
+- **Target language**: The language you are learning (e.g., French, German, Italian)
+- **Source language**: Your native/source language (e.g., Spanish, English)
+
+The plugin automatically determines the correct locale for sorting based on the language name. Supported languages include: French, Spanish, Italian, Portuguese, German, English, Dutch, Swedish, Russian, Polish, Japanese, Chinese, Korean, Greek, Turkish, Arabic, and many more.
+
+> **Note**: The language names are also used to find the corresponding frontmatter fields in your notes. For example, if `Target language` is "French" and `Source language` is "Spanish", the plugin will look for `French:` and `Spanish:` fields in your note frontmatter.
+
 ### Folder Paths
+
 - **Dictionary folder**: Where your dictionary entries are stored (default: `10. Dictionary`)
 - **Verbs folder**: Optional separate folder for verbs
 - **Grammar folder**: Grammar resources location
 - **Templates folder**: Note templates location
 
 ### Classification Files
+
 - **Term types file**: File containing term type definitions (e.g., `#verbe`, `#nom`, `#expression`)
 - **Context types file**: File containing context definitions (e.g., `#social`, `#culinary`)
 
 ### OpenAI Settings
+
 - **API Key**: Your OpenAI API key
 - **Auto-sync**: Automatically update types/context files in OpenAI when they change
 
@@ -120,34 +137,78 @@ Project:: [[Learn French]]
 The plugin exposes a global API for use in Dataview scripts:
 
 ```javascript
+// Access the plugin API
+const learnLanguage = app.plugins.plugins["learn-language"];
+const api = learnLanguage.api;
+
+// Get language configuration
+const targetLang = api.targetLanguage;  // e.g., "French"
+const sourceLang = api.sourceLanguage;  // e.g., "Spanish"
+
 // Get all dictionary entries
-const entries = await window.learnLanguage.getDictionary();
+const entries = await api.getDictionary();
 
 // Get all verbs
-const verbs = await window.learnLanguage.getVerbs();
+const verbs = await api.getVerbs();
 
 // Get grammar pages
-const grammar = await window.learnLanguage.getGrammarPages();
+const grammar = await api.getGrammarPages();
 
 // Filter entries
-const filtered = window.learnLanguage.filterEntries(entries, {
-  Type: "#verbe",
-  Context: "#social"
+const filtered = api.filterEntries(entries, {
+  type: "#verbe",
+  context: "#social"
 });
 
 // Paginate results
-const page = window.learnLanguage.paginateEntries(filtered, 0, 100);
+const page = api.paginateEntries(filtered, 0, 100);
 
 // Ask AI for a term
-const response = await window.learnLanguage.askAI("bonjour");
+const response = await api.askAI("bonjour");
 
 // Create a new term
-await window.learnLanguage.createTerm({
-  French: "bonjour",
-  Spanish: "hola",
-  Type: "#expression",
-  Context: "#social/greetings"
+await api.createTerm({
+  targetWord: "bonjour",
+  sourceWord: "hola",
+  type: "#expression",
+  context: "#social/greetings"
 });
+```
+
+#### Entry Structure
+
+Dictionary entries returned by the API have these properties:
+
+| Property | Description |
+|----------|-------------|
+| `file` | Object with `path`, `name`, `basename` |
+| `targetWord` | The word in target language (lowercase) |
+| `sourceWord` | Translation in source language (lowercase) |
+| `type` | Term type tags (e.g., `#verbe`, `#nom`) |
+| `context` | Context tags (e.g., `#social`, `#culinary`) |
+| `revision` | Revision status (`new`, `1`, `2`, etc.) |
+| `rating` | Optional rating |
+| `examples` | Usage examples |
+| `synonyms` | Related synonyms |
+| `relations` | Related terms |
+| `project` | Associated project |
+
+#### Example: Dynamic Table Headers
+
+```javascript
+const api = app.plugins.plugins["learn-language"].api;
+const entries = await api.getDictionary();
+
+// Use configured language names as headers
+dv.table(
+    [api.targetLanguage, api.sourceLanguage, "Type", "Examples"],
+    entries.slice(0, 20).map(e => [
+        dv.fileLink(e.file.path, false, e.file.name),
+        e.sourceWord || "",
+        e.type || "",
+        e.examples || ""
+    ])
+);
 ```
 
 ## Migration from Dataview Scripts
