@@ -235,7 +235,7 @@ export interface LearnLanguageAPI {
 	// Language settings
 	targetLanguage: string;
 	sourceLanguage: string;
-	
+
 	// Data access
 	getDictionary: () => Promise<DictionaryEntry[]>;
 	getVerbs: () => Promise<VerbEntry[]>;

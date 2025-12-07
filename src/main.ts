@@ -315,7 +315,7 @@ export default class LearnLanguagePlugin extends Plugin {
 			// Language settings
 			targetLanguage: this.settings.targetLanguage,
 			sourceLanguage: this.settings.sourceLanguage,
-			
+
 			// Data access
 			getDictionary: () => this.dictionaryService.getDictionary(),
 			getVerbs: () => this.dictionaryService.getVerbs(),
