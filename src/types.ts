@@ -59,7 +59,7 @@ export interface GrammarPage {
 
 export type VerbGroup = "" | "1" | "2" | "i" | "3" | "3ir" | "3oir" | "3re";
 
-export type StudyMode = "yes" | "no" | "spanish";
+export type StudyMode = "yes" | "no" | "source";
 
 // ============================================
 // Filter Types

@@ -29,7 +29,7 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 		type: options.type || "all",
 		context: options.context || "all",
 		revision: options.revision || "all",
-		study: (options.study as "yes" | "no" | "spanish") || "no",
+		study: (options.study as "yes" | "no" | "source") || "no",
 		limit: options.limit ? parseInt(options.limit) : undefined,
 		pageSize: options.pagesize ? parseInt(options.pagesize) : 50,
 		showStudy: options.showstudy !== "false",

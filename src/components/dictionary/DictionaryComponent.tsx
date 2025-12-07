@@ -93,7 +93,7 @@ export function DictionaryComponent({
 		}
 	}, [onRefresh]);
 
-	const handleStudyChange = useCallback((value: "yes" | "no" | "spanish") => {
+	const handleStudyChange = useCallback((value: "yes" | "no" | "source") => {
 		updateFilter("study", value);
 	}, [updateFilter]);
 
@@ -102,7 +102,7 @@ export function DictionaryComponent({
 	}, [setPageSize]);
 
 	const isStudying = filters.study !== "no";
-	const showSourceFirst = filters.study === "spanish";
+	const showSourceFirst = filters.study === "source";
 
 	return (
 		<div className="ll-dictionary-component">
@@ -139,7 +139,7 @@ export function DictionaryComponent({
 					/>
 					{showStudyMode && (
 						<StudyToggle
-							value={(filters.study as "yes" | "no" | "spanish") || "no"}
+							value={(filters.study as "yes" | "no" | "source") || "no"}
 							targetLanguage={targetLang}
 							sourceLanguage={sourceLang}
 							onChange={handleStudyChange}

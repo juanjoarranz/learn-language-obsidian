@@ -1,10 +1,10 @@
 import React from "react";
 
 interface StudyToggleProps {
-	value: "yes" | "no" | "spanish";
+	value: "yes" | "no" | "source";
 	targetLanguage: string;
 	sourceLanguage: string;
-	onChange: (value: "yes" | "no" | "spanish") => void;
+	onChange: (value: "yes" | "no" | "source") => void;
 }
 
 /**
@@ -24,12 +24,12 @@ export function StudyToggle({
 			<select
 				className="dropdown"
 				value={value}
-				onChange={(e) => onChange(e.target.value as "yes" | "no" | "spanish")}
+				onChange={(e) => onChange(e.target.value as "yes" | "no" | "source")}
 				aria-label="Study mode"
 			>
 				<option value="no">No</option>
 				<option value="yes">{targetLanguage} → {sourceLanguage}</option>
-				<option value="spanish">{sourceLanguage} → {targetLanguage}</option>
+				<option value="source">{sourceLanguage} → {targetLanguage}</option>
 			</select>
 		</div>
 	);
