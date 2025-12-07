@@ -1,12 +1,19 @@
-import { MarkdownPostProcessorContext, App } from "obsidian";
-import { DictionaryComponent, DictionaryComponentOptions } from "../components";
+import React from "react";
+import { MarkdownPostProcessorContext, MarkdownRenderChild, App } from "obsidian";
 import { LearnLanguageSettings, FilterState, DictionaryEntry } from "../types";
 import { DictionaryService, FilterService } from "../services";
+import { DictionaryComponent } from "../components/dictionary";
+import { createReactRoot, ReactMountPoint } from "../utils";
 
 /**
  * Parse YAML-like options from code block content
  */
-function parseBlockOptions(source: string): Partial<FilterState> & { limit?: number; pageSize?: number; showStudy?: boolean; showPagination?: boolean } {
+function parseBlockOptions(source: string): Partial<FilterState> & {
+	limit?: number;
+	pageSize?: number;
+	showStudy?: boolean;
+	showPagination?: boolean;
+} {
 	const options: Record<string, string> = {};
 
 	source.split("\n").forEach(line => {
@@ -29,6 +36,9 @@ function parseBlockOptions(source: string): Partial<FilterState> & { limit?: num
 		showPagination: options.showpagination !== "false"
 	};
 }
+
+// Store React roots for cleanup
+const reactRoots = new Map<HTMLElement, ReactMountPoint>();
 
 /**
  * Register the learn-dictionary code block processor
@@ -68,49 +78,69 @@ export function registerDictionaryCodeBlockProcessor(
 			return;
 		}
 
-		// Apply limit if specified (before component handles filtering)
+		// Apply limit if specified
 		const limit = options.limit;
-		delete options.limit;
-
-		// Extract component options
-		const componentOptions: DictionaryComponentOptions = {
-			showRefresh: true,
-			showStudyMode: options.showStudy !== false,
-			showPagination: options.showPagination !== false,
-			pageSize: options.pageSize || 50,
-			initialFilters: {
-				targetWord: options.targetWord,
-				sourceWord: options.sourceWord,
-				type: options.type,
-				context: options.context,
-				revision: options.revision,
-				study: options.study
-			},
-			onRefresh: async () => {
-				// Refresh entries from service
-				dictionaryService.invalidateCache();
-				let refreshedEntries = await dictionaryService.getDictionary();
-				if (limit) {
-					refreshedEntries = refreshedEntries.slice(0, limit);
-				}
-				component.updateEntries(refreshedEntries);
-			}
-		};
-
-		// Apply initial limit if specified
 		if (limit) {
 			entries = entries.slice(0, limit);
 		}
 
-		// Create and render the dictionary component
-		const component = new DictionaryComponent(
-			app,
+		// Create React root
+		const reactRoot = createReactRoot(
 			container,
+			app,
 			settings,
 			filterService,
-			componentOptions
+			dictionaryService
 		);
 
-		component.render(entries);
+		// Store for cleanup
+		reactRoots.set(el, reactRoot);
+
+		// Create refresh handler
+		const handleRefresh = async () => {
+			dictionaryService.invalidateCache();
+			let refreshedEntries = await dictionaryService.getDictionary();
+			if (limit) {
+				refreshedEntries = refreshedEntries.slice(0, limit);
+			}
+			// Re-render with new entries
+			renderComponent(refreshedEntries);
+		};
+
+		// Render function
+		const renderComponent = (entriesToRender: DictionaryEntry[]) => {
+			reactRoot.render(
+				<DictionaryComponent
+					entries={entriesToRender}
+					showRefresh={true}
+					showStudyMode={options.showStudy !== false}
+					showPagination={options.showPagination !== false}
+					pageSize={options.pageSize || 50}
+					initialFilters={{
+						targetWord: options.targetWord,
+						sourceWord: options.sourceWord,
+						type: options.type,
+						context: options.context,
+						revision: options.revision,
+						study: options.study
+					}}
+					onRefresh={handleRefresh}
+				/>
+			);
+		};
+
+		// Initial render
+		renderComponent(entries);
+
+		// Cleanup on unload (when note is closed or re-rendered)
+		const cleanupChild = new MarkdownRenderChild(container);
+		cleanupChild.onunload = () => {
+			const root = reactRoots.get(el);
+			if (root) {
+				root.unmount();
+				reactRoots.delete(el);
+			}
+		};
+		ctx.addChild(cleanupChild);
 	};
 }
