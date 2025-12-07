@@ -14,8 +14,8 @@ import {
 import type LearnLanguagePlugin from "../main";
 
 interface VerbFilterState extends Partial<FilterState> {
-	Group?: string;
-	Irregular?: string;
+	group?: string;
+	irregular?: string;
 	F?: string;
 	S?: string;
 }
@@ -32,10 +32,10 @@ export class VerbsView extends ItemView {
 	private filters: VerbFilterState = {
 		F: "all",
 		S: "all",
-		Group: "all",
-		Irregular: "all",
-		Revision: "all",
-		Study: "no",
+		group: "all",
+		irregular: "all",
+		revision: "all",
+		study: "no",
 	};
 	private pagination: PaginationState = {
 		pageStart: 0,
@@ -110,21 +110,23 @@ export class VerbsView extends ItemView {
 		this.filterContainer.empty();
 
 		const filterRow = this.filterContainer.createDiv({ cls: "ll-filter-row" });
+		const targetLang = this.plugin.settings.targetLanguage;
+		const sourceLang = this.plugin.settings.sourceLanguage;
 
-		// French filter
-		this.createFilterDropdown(filterRow, "F", this.filters.F || "all", "French");
+		// Target language filter
+		this.createFilterDropdown(filterRow, "F", this.filters.F || "all", targetLang);
 
-		// Spanish filter
-		this.createFilterDropdown(filterRow, "S", this.filters.S || "all", "Spanish");
+		// Source language filter
+		this.createFilterDropdown(filterRow, "S", this.filters.S || "all", sourceLang);
 
 		// Group filter
-		this.createFilterDropdown(filterRow, "Group", this.filters.Group || "all", "Group");
+		this.createFilterDropdown(filterRow, "Group", this.filters.group || "all", "Group");
 
 		// Irregular filter
-		this.createFilterDropdown(filterRow, "Irregular", this.filters.Irregular || "all", "Irregular");
+		this.createFilterDropdown(filterRow, "Irregular", this.filters.irregular || "all", "Irregular");
 
 		// Revision filter
-		this.createFilterDropdown(filterRow, "Revision", this.filters.Revision || "all", "Revision");
+		this.createFilterDropdown(filterRow, "revision", this.filters.revision || "all", "Revision");
 
 		// Study mode toggle
 		this.createStudyToggle(filterRow);
@@ -174,18 +176,21 @@ export class VerbsView extends ItemView {
 		const wrapper = container.createDiv({ cls: "ll-filter-item" });
 		wrapper.createSpan({ text: "Study:", cls: "ll-filter-label" });
 
+		const targetLang = this.plugin.settings.targetLanguage;
+		const sourceLang = this.plugin.settings.sourceLanguage;
+
 		const dropdown = new DropdownComponent(wrapper);
 		dropdown.addOption("no", "No");
-		dropdown.addOption("yes", "French → Spanish");
-		dropdown.addOption("spanish", "Spanish → French");
-		dropdown.setValue(this.filters.Study || "no");
+		dropdown.addOption("yes", `${targetLang} → ${sourceLang}`);
+		dropdown.addOption("spanish", `${sourceLang} → ${targetLang}`);
+		dropdown.setValue(this.filters.study || "no");
 
 		dropdown.onChange((value) => {
-			this.filters.Study = value as "yes" | "no" | "spanish";
+			this.filters.study = value as "yes" | "no" | "spanish";
 			this.applyFiltersAndRender();
 		});
 
-		if (this.filters.Study !== "no") {
+		if (this.filters.study !== "no") {
 			wrapper.addClass("ll-filter-active");
 		}
 	}
@@ -224,21 +229,21 @@ export class VerbsView extends ItemView {
 			result = result.filter(e => e.S.toLowerCase().includes(filters.S!.toLowerCase()));
 		}
 
-		if (filters.Group && filters.Group !== "all") {
-			result = result.filter(e => e.Group === filters.Group);
+		if (filters.group && filters.group !== "all") {
+			result = result.filter(e => e.Group === filters.group);
 		}
 
-		if (filters.Irregular && filters.Irregular !== "all") {
+		if (filters.irregular && filters.irregular !== "all") {
 			result = result.filter(e => {
-				if (filters.Irregular === "i1") {
+				if (filters.irregular === "i1") {
 					return e.Irregular.startsWith("i");
 				}
-				return e.Irregular === filters.Irregular;
+				return e.Irregular === filters.irregular;
 			});
 		}
 
-		if (filters.Revision && filters.Revision !== "all") {
-			result = result.filter(e => e.Revision === filters.Revision);
+		if (filters.revision && filters.revision !== "all") {
+			result = result.filter(e => e.revision === filters.revision);
 		}
 
 		return result;
@@ -260,20 +265,22 @@ export class VerbsView extends ItemView {
 		}
 
 		const table = this.tableContainer.createEl("table", { cls: "ll-table ll-verbs-table" });
+		const targetLang = this.plugin.settings.targetLanguage;
+		const sourceLang = this.plugin.settings.sourceLanguage;
 
 		// Header
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 
-		const headers = ["French", "Spanish", "G", "Présent", "Subjonctif", "Imparfait", "Passé composé", "Futur"];
+		const headers = [targetLang, sourceLang, "G", "Présent", "Subjonctif", "Imparfait", "Passé composé", "Futur"];
 		headers.forEach(h => {
 			headerRow.createEl("th", { text: h });
 		});
 
 		// Body
 		const tbody = table.createEl("tbody");
-		const isStudying = this.filters.Study !== "no";
-		const showSpanishFirst = this.filters.Study === "spanish";
+		const isStudying = this.filters.study !== "no";
+		const showSpanishFirst = this.filters.study === "spanish";
 
 		entries.forEach(entry => {
 			const row = tbody.createEl("tr", { cls: isStudying ? "ll-study-row" : "" });
@@ -290,9 +297,9 @@ export class VerbsView extends ItemView {
 	 * Render a normal (non-study) table row
 	 */
 	private renderNormalRow(row: HTMLElement, entry: VerbEntry): void {
-		// French (link)
-		const frenchCell = row.createEl("td");
-		const link = frenchCell.createEl("a", {
+		// Target word (link)
+		const targetCell = row.createEl("td");
+		const link = targetCell.createEl("a", {
 			text: entry.F,
 			cls: "internal-link",
 			href: entry.file.path,
@@ -302,7 +309,7 @@ export class VerbsView extends ItemView {
 			this.app.workspace.openLinkText(entry.file.path, "");
 		});
 
-		// Spanish
+		// Source word
 		row.createEl("td", { text: entry.S });
 
 		// Group

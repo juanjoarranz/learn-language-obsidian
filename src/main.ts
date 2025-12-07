@@ -312,16 +312,21 @@ export default class LearnLanguagePlugin extends Plugin {
 	 */
 	private exposeGlobalAPI(): void {
 		this.api = {
+			// Language settings
+			targetLanguage: this.settings.targetLanguage,
+			sourceLanguage: this.settings.sourceLanguage,
+			
+			// Data access
 			getDictionary: () => this.dictionaryService.getDictionary(),
 			getVerbs: () => this.dictionaryService.getVerbs(),
 			getGrammarPages: () => this.dictionaryService.getGrammarPages(),
 			createTerm: async (term) => {
 				await this.termService.createOrUpdateTerm({
-					french: term.French || term.file?.basename || "",
-					spanish: term.Spanish,
-					type: term.Type,
-					context: term.Context,
-					examples: term.Examples,
+					french: term.targetWord || term.file?.basename || "",
+					spanish: term.sourceWord,
+					type: term.type,
+					context: term.context,
+					examples: term.examples,
 				});
 			},
 			updateTerm: async (filePath, updates) => {
@@ -329,10 +334,10 @@ export default class LearnLanguagePlugin extends Plugin {
 				if (file instanceof TFile) {
 					await this.termService.updateTermFile(file, {
 						french: file.basename,
-						spanish: updates.Spanish,
-						type: updates.Type,
-						context: updates.Context,
-						examples: updates.Examples,
+						spanish: updates.sourceWord,
+						type: updates.type,
+						context: updates.context,
+						examples: updates.examples,
 					});
 				}
 			},

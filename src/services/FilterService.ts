@@ -2,7 +2,8 @@ import { App, TFile } from "obsidian";
 import {
 	DictionaryEntry,
 	FilterState,
-	LearnLanguageSettings
+	LearnLanguageSettings,
+	getLocaleCode
 } from "../types";
 
 /**
@@ -57,37 +58,37 @@ export class FilterService {
 	): T[] {
 		let result = [...entries];
 
-		if (filters.French && filters.French !== "all") {
-			result = result.filter(e => e.French.toLowerCase().includes(filters.French!.toLowerCase()));
+		if (filters.targetWord && filters.targetWord !== "all") {
+			result = result.filter(e => e.targetWord.toLowerCase().includes(filters.targetWord!.toLowerCase()));
 		}
 
-		if (filters.Spanish && filters.Spanish !== "all") {
-			result = result.filter(e => e.Spanish.toLowerCase().includes(filters.Spanish!.toLowerCase()));
+		if (filters.sourceWord && filters.sourceWord !== "all") {
+			result = result.filter(e => e.sourceWord.toLowerCase().includes(filters.sourceWord!.toLowerCase()));
 		}
 
-		if (filters.Type && filters.Type !== "all") {
-			result = result.filter(e => e.Type.toLowerCase().includes(filters.Type!.toLowerCase()));
+		if (filters.type && filters.type !== "all") {
+			result = result.filter(e => e.type.toLowerCase().includes(filters.type!.toLowerCase()));
 		}
 
-		if (filters.Context && filters.Context !== "all") {
-			result = result.filter(e => e.Context.toLowerCase().includes(filters.Context!.toLowerCase()));
+		if (filters.context && filters.context !== "all") {
+			result = result.filter(e => e.context.toLowerCase().includes(filters.context!.toLowerCase()));
 		}
 
-		if (filters.Revision && filters.Revision !== "all") {
-			result = result.filter(e => e.Revision === filters.Revision);
+		if (filters.revision && filters.revision !== "all") {
+			result = result.filter(e => e.revision === filters.revision);
 		}
 
 		// Verb-specific filters (cast to access additional properties)
-		const verbFilters = filters as Partial<FilterState> & { Group?: string; Irregular?: string };
-		if (verbFilters.Group && verbFilters.Group !== "all") {
-			result = result.filter(e => (e as unknown as { Group: string }).Group === verbFilters.Group);
+		const verbFilters = filters as Partial<FilterState> & { group?: string; irregular?: string };
+		if (verbFilters.group && verbFilters.group !== "all") {
+			result = result.filter(e => (e as unknown as { Group: string }).Group === verbFilters.group);
 		}
 
-		if (verbFilters.Irregular && verbFilters.Irregular !== "all") {
+		if (verbFilters.irregular && verbFilters.irregular !== "all") {
 			result = result.filter(e => {
 				const irregular = (e as unknown as { Irregular: string }).Irregular;
-				return irregular === verbFilters.Irregular ||
-					(verbFilters.Irregular === "i1" && irregular.startsWith("i"));
+				return irregular === verbFilters.irregular ||
+					(verbFilters.irregular === "i1" && irregular.startsWith("i"));
 			});
 		}
 
@@ -139,8 +140,9 @@ export class FilterService {
 			}
 		});
 
-		// Sort using French locale
-		const sorted = Array.from(values).sort((a, b) => a.localeCompare(b, "fr"));
+		// Sort using target language locale
+		const locale = getLocaleCode(this.settings.targetLanguage);
+		const sorted = Array.from(values).sort((a, b) => a.localeCompare(b, locale));
 
 		// Add "all" option at the beginning
 		return ["all", ...sorted];

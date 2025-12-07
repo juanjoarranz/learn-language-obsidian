@@ -25,12 +25,12 @@ export class DictionaryView extends ItemView {
 	private entries: DictionaryEntry[] = [];
 	private filteredEntries: DictionaryEntry[] = [];
 	private filters: Partial<FilterState> = {
-		French: "all",
-		Spanish: "all",
-		Type: "all",
-		Context: "all",
-		Revision: "all",
-		Study: "no",
+		targetWord: "all",
+		sourceWord: "all",
+		type: "all",
+		context: "all",
+		revision: "all",
+		study: "no",
 	};
 	private pagination: PaginationState = {
 		pageStart: 0,
@@ -105,21 +105,23 @@ export class DictionaryView extends ItemView {
 		this.filterContainer.empty();
 
 		const filterRow = this.filterContainer.createDiv({ cls: "ll-filter-row" });
+		const targetLang = this.plugin.settings.targetLanguage;
+		const sourceLang = this.plugin.settings.sourceLanguage;
 
-		// French filter
-		this.createFilterDropdown(filterRow, "French", this.filters.French || "all");
+		// Target word filter
+		this.createFilterDropdown(filterRow, "targetWord", this.filters.targetWord || "all", targetLang);
 
-		// Spanish filter
-		this.createFilterDropdown(filterRow, "Spanish", this.filters.Spanish || "all");
+		// Source word filter
+		this.createFilterDropdown(filterRow, "sourceWord", this.filters.sourceWord || "all", sourceLang);
 
 		// Type filter
-		this.createFilterDropdown(filterRow, "Type", this.filters.Type || "all");
+		this.createFilterDropdown(filterRow, "type", this.filters.type || "all", "Type");
 
 		// Context filter
-		this.createFilterDropdown(filterRow, "Context", this.filters.Context || "all");
+		this.createFilterDropdown(filterRow, "context", this.filters.context || "all", "Context");
 
 		// Revision filter
-		this.createFilterDropdown(filterRow, "Revision", this.filters.Revision || "all");
+		this.createFilterDropdown(filterRow, "revision", this.filters.revision || "all", "Revision");
 
 		// Study mode toggle
 		this.createStudyToggle(filterRow);
@@ -139,10 +141,11 @@ export class DictionaryView extends ItemView {
 	private createFilterDropdown(
 		container: HTMLElement,
 		filterName: keyof FilterState,
-		currentValue: string
+		currentValue: string,
+		displayName?: string
 	): void {
 		const wrapper = container.createDiv({ cls: "ll-filter-item" });
-		wrapper.createSpan({ text: `${filterName}:`, cls: "ll-filter-label" });
+		wrapper.createSpan({ text: `${displayName || filterName}:`, cls: "ll-filter-label" });
 
 		const values = this.plugin.filterService.getUniqueValues(this.entries, filterName);
 
@@ -169,18 +172,21 @@ export class DictionaryView extends ItemView {
 		const wrapper = container.createDiv({ cls: "ll-filter-item" });
 		wrapper.createSpan({ text: "Study:", cls: "ll-filter-label" });
 
+		const targetLang = this.plugin.settings.targetLanguage;
+		const sourceLang = this.plugin.settings.sourceLanguage;
+
 		const dropdown = new DropdownComponent(wrapper);
 		dropdown.addOption("no", "No");
-		dropdown.addOption("yes", "French → Spanish");
-		dropdown.addOption("spanish", "Spanish → French");
-		dropdown.setValue(this.filters.Study || "no");
+		dropdown.addOption("yes", `${targetLang} → ${sourceLang}`);
+		dropdown.addOption("spanish", `${sourceLang} → ${targetLang}`);
+		dropdown.setValue(this.filters.study || "no");
 
 		dropdown.onChange((value) => {
-			this.filters.Study = value as "yes" | "no" | "spanish";
+			this.filters.study = value as "yes" | "no" | "spanish";
 			this.applyFiltersAndRender();
 		});
 
-		if (this.filters.Study !== "no") {
+		if (this.filters.study !== "no") {
 			wrapper.addClass("ll-filter-active");
 		}
 	}
@@ -221,20 +227,22 @@ export class DictionaryView extends ItemView {
 		}
 
 		const table = this.tableContainer.createEl("table", { cls: "ll-table" });
+		const targetLang = this.plugin.settings.targetLanguage;
+		const sourceLang = this.plugin.settings.sourceLanguage;
 
 		// Header
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 
-		const headers = ["French", "Spanish", "Type", "Context", "Rating", "Examples"];
+		const headers = [targetLang, sourceLang, "Type", "Context", "Rating", "Examples"];
 		headers.forEach(h => {
 			headerRow.createEl("th", { text: h });
 		});
 
 		// Body
 		const tbody = table.createEl("tbody");
-		const isStudying = this.filters.Study !== "no";
-		const showSpanishFirst = this.filters.Study === "spanish";
+		const isStudying = this.filters.study !== "no";
+		const showSpanishFirst = this.filters.study === "spanish";
 
 		entries.forEach(entry => {
 			const row = tbody.createEl("tr", { cls: isStudying ? "ll-study-row" : "" });
@@ -251,9 +259,9 @@ export class DictionaryView extends ItemView {
 	 * Render a normal (non-study) table row
 	 */
 	private renderNormalRow(row: HTMLElement, entry: DictionaryEntry): void {
-		// French (link)
-		const frenchCell = row.createEl("td");
-		const link = frenchCell.createEl("a", {
+		// Target word (link)
+		const targetCell = row.createEl("td");
+		const link = targetCell.createEl("a", {
 			text: entry.file.basename,
 			cls: "internal-link",
 			href: entry.file.path,
@@ -263,22 +271,22 @@ export class DictionaryView extends ItemView {
 			this.app.workspace.openLinkText(entry.file.path, "");
 		});
 
-		// Spanish
-		row.createEl("td", { text: entry.Spanish });
+		// Source word
+		row.createEl("td", { text: entry.sourceWord });
 
 		// Type
-		row.createEl("td", { text: entry.Type, cls: "ll-tags" });
+		row.createEl("td", { text: entry.type, cls: "ll-tags" });
 
 		// Context
-		row.createEl("td", { text: entry.Context, cls: "ll-tags" });
+		row.createEl("td", { text: entry.context, cls: "ll-tags" });
 
 		// Rating
-		row.createEl("td", { text: entry.Rating || "" });
+		row.createEl("td", { text: entry.rating || "" });
 
 		// Examples
 		const examplesCell = row.createEl("td", { cls: "ll-examples" });
-		if (entry.Examples) {
-			examplesCell.innerHTML = entry.Examples.replace(/<br>/g, "<br>");
+		if (entry.examples) {
+			examplesCell.innerHTML = entry.examples.replace(/<br>/g, "<br>");
 		}
 	}
 
@@ -286,8 +294,8 @@ export class DictionaryView extends ItemView {
 	 * Render a study mode row (collapsible)
 	 */
 	private renderStudyRow(row: HTMLElement, entry: DictionaryEntry, showSpanishFirst: boolean): void {
-		const questionText = showSpanishFirst ? entry.Spanish : entry.file.basename;
-		const answerText = showSpanishFirst ? entry.file.basename : entry.Spanish;
+		const questionText = showSpanishFirst ? entry.sourceWord : entry.file.basename;
+		const answerText = showSpanishFirst ? entry.file.basename : entry.sourceWord;
 
 		// Question cell (spans all columns)
 		const questionCell = row.createEl("td", { attr: { colspan: "6" } });
@@ -301,13 +309,13 @@ export class DictionaryView extends ItemView {
 		const answerDiv = questionCell.createDiv({ cls: "ll-study-answer ll-hidden" });
 		answerDiv.createEl("span", { text: answerText, cls: "ll-answer-text" });
 
-		if (entry.Type) {
-			answerDiv.createEl("span", { text: ` (${entry.Type})`, cls: "ll-answer-type" });
+		if (entry.type) {
+			answerDiv.createEl("span", { text: ` (${entry.type})`, cls: "ll-answer-type" });
 		}
 
-		if (entry.Examples) {
+		if (entry.examples) {
 			const examplesDiv = answerDiv.createDiv({ cls: "ll-answer-examples" });
-			examplesDiv.innerHTML = entry.Examples.replace(/<br>/g, "<br>");
+			examplesDiv.innerHTML = entry.examples.replace(/<br>/g, "<br>");
 		}
 
 		// Toggle on click

@@ -4,7 +4,8 @@ import {
 	VerbEntry,
 	GrammarPage,
 	VerbGroup,
-	LearnLanguageSettings
+	LearnLanguageSettings,
+	getLocaleCode
 } from "../types";
 
 /**
@@ -81,11 +82,13 @@ export class DictionaryService {
 			}
 		}
 
-		// Sort by name ascending
-		entries.sort((a, b) => a.file.name.localeCompare(b.file.name, "fr"));
+		// Sort by name ascending using target language locale
+		const locale = getLocaleCode(this.settings.targetLanguage);
+		entries.sort((a, b) => a.file.name.localeCompare(b.file.name, locale));
 
     console.log(`JAA Loaded ${entries.length} dictionary entries from ${this.settings.dictionaryFolder}`);
 
+    console.log("JAA Dictionary entries", entries);
 		this.dictionaryCache = entries;
 		this.cacheTimestamp = Date.now();
 
@@ -110,8 +113,9 @@ export class DictionaryService {
 			}
 		}
 
-		// Sort by name ascending
-		verbs.sort((a, b) => a.file.name.localeCompare(b.file.name, "fr"));
+		// Sort by name ascending using target language locale
+		const locale = getLocaleCode(this.settings.targetLanguage);
+		verbs.sort((a, b) => a.file.name.localeCompare(b.file.name, locale));
 
 		this.verbsCache = verbs;
 		return verbs;
@@ -145,8 +149,9 @@ export class DictionaryService {
 			}
 		}
 
-		// Sort by name ascending
-		pages.sort((a, b) => a.file.name.localeCompare(b.file.name, "fr"));
+		// Sort by name ascending using target language locale
+		const locale = getLocaleCode(this.settings.targetLanguage);
+		pages.sort((a, b) => a.file.name.localeCompare(b.file.name, locale));
 
 		this.grammarCache = pages;
 		return pages;
@@ -166,14 +171,23 @@ export class DictionaryService {
 		const type = this.getFieldValue(inlineFields.type, inlineFields.Type, fm.type, fm.Type);
 		const context = this.getFieldValue(inlineFields.context, inlineFields.Context, fm.context, fm.Context);
 
+		// Get source language value using configured language name
+		const sourceLanguage = this.settings.sourceLanguage;
+		const sourceValue = this.getFieldValue(
+			fm[sourceLanguage],
+			fm[sourceLanguage.toLowerCase()],
+			inlineFields[sourceLanguage],
+			inlineFields[sourceLanguage.toLowerCase()]
+		);
+
 		return {
 			file: {
 				path: file.path,
 				name: file.name,
 				basename: file.basename,
 			},
-			french: file.basename.toLowerCase(),
-			spanish: (fm.Spanish || fm.spanish || "").toLowerCase(),
+			targetWord: file.basename.toLowerCase(),
+			sourceWord: sourceValue.toLowerCase(),
 			type: this.normalizeArrayField(type),
 			context: this.normalizeArrayField(context),
 			revision: fm.Revision !== undefined ? fm.Revision.toString() : "new",
@@ -223,7 +237,7 @@ export class DictionaryService {
 		const verbEntry: VerbEntry = {
 			...entry,
 			F: entry.file.basename,
-			S: entry.spanish,
+			S: entry.sourceWord,
 			Group: this.determineVerbGroup(entry.type),
 			Irregular: this.determineIrregular(entry.type),
 		};

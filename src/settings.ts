@@ -16,6 +16,33 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 		containerEl.createEl("h1", { text: "Learn Language Settings" });
 
 		// =====================
+		// Language Configuration Section
+		// =====================
+		containerEl.createEl("h2", { text: "Language Configuration" });
+
+		new Setting(containerEl)
+			.setName("Target language")
+			.setDesc("The language you are learning (e.g., French, German, Italian)")
+			.addText(text => text
+				.setPlaceholder("French")
+				.setValue(this.plugin.settings.targetLanguage)
+				.onChange(async (value) => {
+					this.plugin.settings.targetLanguage = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName("Source language")
+			.setDesc("Your native/source language (e.g., Spanish, English)")
+			.addText(text => text
+				.setPlaceholder("Spanish")
+				.setValue(this.plugin.settings.sourceLanguage)
+				.onChange(async (value) => {
+					this.plugin.settings.sourceLanguage = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// =====================
 		// Folder Paths Section
 		// =====================
 		containerEl.createEl("h2", { text: "Folder Paths" });

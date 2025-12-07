@@ -12,8 +12,8 @@ export interface DictionaryEntry {
 		name: string;
 		basename: string;
 	};
-	french: string;
-	spanish: string;
+	targetWord: string;
+	sourceWord: string;
 	type: string;
 	context: string;
 	revision: string;
@@ -66,14 +66,14 @@ export type StudyMode = "yes" | "no" | "spanish";
 // ============================================
 
 export interface FilterState {
-	French: string;
-	Spanish: string;
-	Type: string;
-	Context: string;
-	Revision: string;
-	Study: StudyMode;
-	Group?: string;
-	Irregular?: string;
+	targetWord: string;
+	sourceWord: string;
+	type: string;
+	context: string;
+	revision: string;
+	study: StudyMode;
+	group?: string;
+	irregular?: string;
 }
 
 export interface PaginationState {
@@ -83,10 +83,62 @@ export interface PaginationState {
 }
 
 // ============================================
+// Language Locale Mapping
+// ============================================
+
+export const LANGUAGE_LOCALE_MAP: Record<string, string> = {
+	// Romance languages
+	"French": "fr",
+	"Spanish": "es",
+	"Italian": "it",
+	"Portuguese": "pt",
+	"Romanian": "ro",
+	"Catalan": "ca",
+	// Germanic languages
+	"German": "de",
+	"English": "en",
+	"Dutch": "nl",
+	"Swedish": "sv",
+	"Norwegian": "no",
+	"Danish": "da",
+	// Slavic languages
+	"Russian": "ru",
+	"Polish": "pl",
+	"Czech": "cs",
+	"Ukrainian": "uk",
+	// Asian languages
+	"Japanese": "ja",
+	"Chinese": "zh",
+	"Korean": "ko",
+	"Vietnamese": "vi",
+	"Thai": "th",
+	// Other languages
+	"Greek": "el",
+	"Turkish": "tr",
+	"Arabic": "ar",
+	"Hebrew": "he",
+	"Hindi": "hi",
+	"Finnish": "fi",
+	"Hungarian": "hu",
+};
+
+/**
+ * Get locale code for a language name
+ * Falls back to 'en' if language is not found
+ */
+export function getLocaleCode(language: string): string {
+	return LANGUAGE_LOCALE_MAP[language] || LANGUAGE_LOCALE_MAP[language.toLowerCase()] || "en";
+}
+
+// ============================================
 // Plugin Settings
 // ============================================
 
 export interface LearnLanguageSettings {
+	// Language configuration
+	targetLanguage: string;  // The language being learned (e.g., "French")
+	sourceLanguage: string;  // The native/source language (e.g., "Spanish")
+
 	// Folder paths
 	dictionaryFolder: string;
 	verbsFolder: string;
@@ -113,6 +165,11 @@ export interface LearnLanguageSettings {
 }
 
 export const DEFAULT_SETTINGS: LearnLanguageSettings = {
+	// Language defaults (French-Spanish)
+	targetLanguage: "French",
+	sourceLanguage: "Spanish",
+
+	// Folder defaults
 	dictionaryFolder: "10. Dictionary",
 	verbsFolder: "15. Verbs",
 	grammarFolder: "30. Grammar",
@@ -175,6 +232,11 @@ export interface DictionaryUpdateEvent {
 // ============================================
 
 export interface LearnLanguageAPI {
+	// Language settings
+	targetLanguage: string;
+	sourceLanguage: string;
+	
+	// Data access
 	getDictionary: () => Promise<DictionaryEntry[]>;
 	getVerbs: () => Promise<VerbEntry[]>;
 	getGrammarPages: () => Promise<GrammarPage[]>;
