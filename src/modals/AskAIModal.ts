@@ -27,11 +27,11 @@ export class AskAIModal extends Modal {
 		contentEl.createEl("h2", { text: "Ask AI for Term" });
 
 		new Setting(contentEl)
-			.setName("French term")
-			.setDesc("Enter the French term or expression to look up")
+			.setName(`${this.plugin.settings.targetLanguage || "French"} term`)
+			.setDesc(`Enter the ${this.plugin.settings.targetLanguage || "French"} term or expression to look up`)
 			.addText(text => {
 				text
-					.setPlaceholder("Enter French term")
+					.setPlaceholder(`Enter ${this.plugin.settings.targetLanguage || "French"} term`)
 					.onChange(value => {
 						this.termValue = value;
 					});
@@ -55,7 +55,7 @@ export class AskAIModal extends Modal {
 			});
 
 		new ButtonComponent(buttonsContainer)
-			.setButtonText("Ask AI & Create")
+			.setButtonText("Ask AI & Create or Update Term")
 			.setCta()
 			.onClick(async () => {
 				await this.handleAsk();
@@ -64,7 +64,7 @@ export class AskAIModal extends Modal {
 
 	private async handleAsk(): Promise<void> {
 		if (!this.termValue.trim()) {
-			new Notice("Please enter a French term");
+			new Notice(`Please enter a ${this.plugin.settings.targetLanguage || "French"} term`);
 			return;
 		}
 
@@ -81,7 +81,7 @@ export class AskAIModal extends Modal {
 	const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
 		if (response) {
 			// Create the term with AI response
-			const file = await this.plugin.termService.createOrUpdateTerm({
+			const file = await this.plugin.termService.createOrUpdateTermPage({
 				targetTerm: this.termValue,
 				sourceTerm: (response as unknown as Record<string, unknown>)[sourceLanguage.toLowerCase()] as string | undefined,
 				type: response.type,
@@ -91,7 +91,7 @@ export class AskAIModal extends Modal {
 
 			if (file) {
 				new Notice(`Term "${this.termValue}" created with AI data!`);
-				await this.app.workspace.openLinkText(file.path, "");
+				//await this.app.workspace.openLinkText(file.path, ""); // ONLY IF WE WANT TO OPEN THE FILE
 			}
 
 			this.close();

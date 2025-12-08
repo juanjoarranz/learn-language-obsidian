@@ -120,7 +120,7 @@ export class TermModal extends Modal {
 					new Notice(`Term "${values.targetTerm}" updated!`);
 				} else {
 					// Create new term
-					const file = await this.plugin.termService.createOrUpdateTerm(values);
+					const file = await this.plugin.termService.createOrUpdateTermPage(values);
 					if (file) {
 						new Notice(`Term "${values.targetTerm}" created!`);
 						// Open the new file

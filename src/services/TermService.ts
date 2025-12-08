@@ -1,4 +1,4 @@
-import { App, TFile } from "obsidian";
+import { App, TFile, Notice } from "obsidian";
 import {
 	DictionaryEntry,
 	LearnLanguageSettings,
@@ -7,7 +7,7 @@ import {
 
 /**
  * TermService - Handles term file creation and updates
- * Replaces createOrUpdateTermPage() and createTermFile() from dvViews/utils.js
+ * Based on createOrUpdateTermPage() and createTermFile() from dvViews/utils.js
  */
 export class TermService {
 	private app: App;
@@ -26,9 +26,10 @@ export class TermService {
 	}
 
 	/**
-	 * Create or update a term page
+	 * Create or update a term page (main entry point)
+	 * Based on legacy createOrUpdateTermPage()
 	 */
-	async createOrUpdateTerm(term: {
+	async createOrUpdateTermPage(term: {
 		targetTerm: string;
 		sourceTerm?: string;
 		type?: string;
@@ -42,17 +43,18 @@ export class TermService {
 		const existingFile = this.app.vault.getAbstractFileByPath(filePath);
 
 		if (existingFile instanceof TFile) {
-			// Update existing file
-			await this.updateTermFile(existingFile, term);
+			// Update existing file (only update empty fields)
+			await this.updateTermPageProperties(existingFile, term);
 			return existingFile;
 		} else {
-			// Create new file
+			// Create new file from template
 			return await this.createTermFile(term);
 		}
 	}
 
 	/**
 	 * Create a new term file from template
+	 * Based on legacy createTermFile()
 	 */
 	async createTermFile(term: {
 		targetTerm: string;
@@ -61,35 +63,46 @@ export class TermService {
 		context?: string;
 		examples?: string;
 	}): Promise<TFile | null> {
-		// Use configured template or fall back to default content
-		let content: string;
+		// Get template content
+		let fileContent = "";
+		const templatePath = this.settings.termTemplateFile || `${this.settings.templatesFolder}/tpl - New Term.md`;
+		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
 
-		if (this.settings.termTemplateFile) {
-			const templateFile = this.app.vault.getAbstractFileByPath(this.settings.termTemplateFile);
-			if (templateFile instanceof TFile) {
-				content = await this.app.vault.read(templateFile);
-			} else {
-				content = this.getDefaultTermContent();
-			}
+		if (templateFile instanceof TFile) {
+			fileContent = await this.app.vault.read(templateFile);
+			// Replace placeholders in template
+			fileContent = this.replaceTemplatePlaceholders(fileContent, term);
 		} else {
-			content = this.getDefaultTermContent();
+			console.log(`Template file "${templatePath}" not found, using default content.`);
+			fileContent = this.getDefaultTermContent();
 		}
 
-
-		// Replace placeholders and set values
-		content = this.replacePlaceholders(content, term);
-
-		const filePath = `${this.settings.dictionaryFolder}/${term.targetTerm}.md`;
+		const fullFilePath = `${this.settings.dictionaryFolder}/${term.targetTerm}.md`;
 
 		try {
-			const newFile = await this.app.vault.create(filePath, content);
+			// Create the file
+			const newFile = await this.app.vault.create(fullFilePath, fileContent);
+			console.log("File created:", fullFilePath);
+
+			// Update inline fields sequentially to avoid race conditions with vault.process()
+			if (term.type) {
+				await this.updateInlineFieldValue(fullFilePath, "Type", term.type);
+			}
+			if (term.context) {
+				await this.updateInlineFieldValue(fullFilePath, "Context", term.context);
+			}
+			if (term.examples) {
+				await this.updateInlineFieldValue(fullFilePath, "Examples", term.examples);
+			}
 
 			// Update frontmatter
-			await this.app.fileManager.processFrontMatter(newFile, (fm) => {
-				if (term.sourceTerm) fm[this.settings.sourceLanguage] = term.sourceTerm;
-			});
+			if (term.sourceTerm) {
+				await this.storeFrontmatterProperty(fullFilePath, this.settings.sourceLanguage, term.sourceTerm);
+			}
 
+			new Notice(`Successfully created the note file: ${term.targetTerm}`, 10000);
 			return newFile;
+
 		} catch (error) {
 			console.error("Error creating term file:", error);
 			return null;
@@ -97,7 +110,66 @@ export class TermService {
 	}
 
 	/**
-	 * Update an existing term file
+	 * Update an existing term page properties (only update empty fields)
+	 * Based on legacy updateTermPageProperties()
+	 */
+	async updateTermPageProperties(file: TFile, term: {
+		targetTerm: string;
+		sourceTerm?: string;
+		type?: string;
+		context?: string;
+		examples?: string;
+	}): Promise<void> {
+		const filePath = file.path;
+		let termUpdated = false;
+
+		// Read current content to check existing values
+		const content = await this.app.vault.read(file);
+
+		// Get current inline field values
+		const currentType = this.getInlineFieldValue(content, "Type");
+		const currentContext = this.getInlineFieldValue(content, "Context");
+		const currentExamples = this.getInlineFieldValue(content, "Examples");
+
+		// Update Type only if empty
+		if ((!currentType || currentType === undefined || currentType === "") && term.type) {
+			console.log(`Updating Type for ${term.targetTerm}`);
+			await this.updateInlineFieldValue(filePath, "Type", term.type);
+			termUpdated = true;
+		}
+
+		// Update Context only if empty
+		if ((!currentContext || currentContext === undefined || currentContext === "") && term.context) {
+			await this.updateInlineFieldValue(filePath, "Context", term.context);
+			termUpdated = true;
+		}
+
+		// Update Examples: add new examples if less than 3 exist
+		if (term.examples) {
+			const currentExamplesCount = currentExamples ? currentExamples.split("<br>").length : 0;
+			console.log("currentExamplesCount", currentExamplesCount);
+
+			if (!currentExamples || currentExamples === undefined || currentExamples === "" || currentExamplesCount < 3) {
+				if (currentExamplesCount === 0) {
+					await this.updateInlineFieldValue(filePath, "Examples", term.examples);
+				} else {
+					const updatedExamples = `${currentExamples}<br>${term.examples}`;
+					await this.updateInlineFieldValue(filePath, "Examples", updatedExamples);
+				}
+				termUpdated = true;
+			}
+		}
+
+		if (termUpdated) {
+			new Notice(`Successfully updated the term: ${term.targetTerm}`, 10000);
+		} else {
+			new Notice(`The term "${term.targetTerm}" HAS NOT been updated`, 10000);
+		}
+	}
+
+	/**
+	 * Update an existing term file (force update all provided fields)
+	 * Used by the edit modal to update all fields regardless of existing values
 	 */
 	async updateTermFile(file: TFile, term: {
 		targetTerm: string;
@@ -106,36 +178,37 @@ export class TermService {
 		context?: string;
 		examples?: string;
 	}): Promise<void> {
-		// Update frontmatter
-		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			if (term.sourceTerm !== undefined) fm[this.settings.sourceLanguage] = term.sourceTerm;
-		});
+		const filePath = file.path;
 
-		// Update inline fields
-		let content = await this.app.vault.read(file);
-
+		// Update inline fields sequentially to avoid race conditions with vault.process()
 		if (term.type !== undefined) {
-			content = this.updateInlineField(content, "Type", term.type);
+			await this.updateInlineFieldValue(filePath, "Type", term.type);
 		}
 		if (term.context !== undefined) {
-			content = this.updateInlineField(content, "Context", term.context);
+			await this.updateInlineFieldValue(filePath, "Context", term.context);
 		}
 		if (term.examples !== undefined) {
-			content = this.updateInlineField(content, "Examples", term.examples);
+			await this.updateInlineFieldValue(filePath, "Examples", term.examples);
 		}
 
-		await this.app.vault.modify(file, content);
+		// Update frontmatter
+		if (term.sourceTerm !== undefined) {
+			await this.storeFrontmatterProperty(filePath, this.settings.sourceLanguage, term.sourceTerm);
+		}
 	}
 
 	/**
 	 * Update a term from AI response
 	 */
-	async updateTermFromAI(french: string, aiResponse: AITermResponse): Promise<TFile | null> {
-    const targetLanguage = this.settings.targetLanguage || "French";
-    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
-		return await this.createOrUpdateTerm({
-			targetTerm: targetLanguage.toLocaleLowerCase(),
-			sourceTerm: (aiResponse as unknown as Record<string, unknown>)[sourceLanguage.toLowerCase()] as string,
+	async updateTermFromAI(targetTerm: string, aiResponse: AITermResponse): Promise<TFile | null> {
+		const sourceLang = this.settings.sourceLanguage.toLowerCase();
+
+		// Get the source translation from the AI response using the configured source language
+		const sourceTerm = (aiResponse as unknown as Record<string, unknown>)[sourceLang] as string;
+
+		return await this.createOrUpdateTermPage({
+			targetTerm: targetTerm,
+			sourceTerm: sourceTerm,
 			type: aiResponse.type,
 			context: aiResponse.context,
 			examples: aiResponse.examples,
@@ -143,43 +216,63 @@ export class TermService {
 	}
 
 	/**
-	 * Update inline field in content
+	 * Get inline field value from content
 	 */
-	private updateInlineField(content: string, fieldName: string, value: string): string {
-		const regex = new RegExp(`^${fieldName}::.*$`, "m");
-		const newLine = `${fieldName}:: ${value}`;
-
-		if (regex.test(content)) {
-			// Replace existing field
-			return content.replace(regex, newLine);
-		} else {
-			// Field doesn't exist - try to add it after a known field or at the end of frontmatter section
-			const lines = content.split("\n");
-			let insertIndex = -1;
-
-			// Find a good place to insert (after other inline fields or after frontmatter)
-			for (let i = 0; i < lines.length; i++) {
-				if (lines[i].match(/^[A-Za-z_-]+::/)) {
-					insertIndex = i + 1;
-				}
-			}
-
-			if (insertIndex > 0) {
-				lines.splice(insertIndex, 0, newLine);
-				return lines.join("\n");
-			}
-
-			// Append after content
-			return content + "\n" + newLine;
+	private getInlineFieldValue(content: string, fieldName: string): string | null {
+		// Use [^\S\n]* instead of \s* to match whitespace WITHOUT consuming newlines
+		const regex = new RegExp(`^${fieldName}\\s*::[^\\S\\n]*(.*)$`, "m");
+		const match = content.match(regex);
+		if (match && match[1]) {
+			return match[1].trim();
 		}
+		return null;
+	}
+
+	/**
+	 * Update inline field in file
+	 * Based on legacy updateInlineFieldValue()
+	 */
+	private async updateInlineFieldValue(filePath: string, fieldName: string, fieldValue: string): Promise<void> {
+		const vaultFile = this.app.vault.getAbstractFileByPath(filePath);
+		if (!(vaultFile instanceof TFile)) {
+			console.error(`File not found: ${filePath}`);
+			return;
+		}
+
+		await this.app.vault.process(vaultFile, (data) => {
+			// Legacy regex: matches field at start of line, optional space, ::, then anything until newline
+			const re = new RegExp(`^${fieldName}\\s?::.*`, "m");
+			const match = data.match(re);
+			if (match) {
+				data = data.replace(re, `${fieldName}:: ${fieldValue}`);
+			}
+			return data;
+		});
+	}
+
+	/**
+	 * Store frontmatter property
+	 * Based on legacy storeFrontmatterProperty()
+	 */
+	private async storeFrontmatterProperty(filePath: string, key: string, value: string): Promise<void> {
+		const vaultFile = this.app.vault.getAbstractFileByPath(filePath);
+		if (!(vaultFile instanceof TFile)) {
+			console.error(`File not found: ${filePath}`);
+			return;
+		}
+
+		await this.app.fileManager.processFrontMatter(vaultFile, (frontmatter) => {
+			frontmatter[key] = value;
+		});
 	}
 
 	/**
 	 * Get default term content when no template exists
 	 */
 	private getDefaultTermContent(): string {
+		const sourceLang = this.settings.sourceLanguage;
 		return `---
-Spanish:
+${sourceLang}:
 cssclasses:
   - ja-readable
 ---
@@ -191,7 +284,7 @@ Examples::
 Rating::
 Relations::
 Revision::
-Project:: [[Learn French]]
+Project:: [[Learn ${this.settings.targetLanguage}]]
 
 ---
 
@@ -203,35 +296,17 @@ Project:: [[Learn French]]
 	/**
 	 * Replace placeholders in template content
 	 */
-	private replacePlaceholders(content: string, term: {
+	private replaceTemplatePlaceholders(content: string, term: {
 		targetTerm: string;
-		sourceTerm?: string;
-		type?: string;
-		context?: string;
-		examples?: string;
 	}): string {
 		let result = content;
-		const targetLang = this.settings.targetLanguage.toLowerCase();
-		const sourceLang = this.settings.sourceLanguage.toLowerCase();
 
-		// Dynamic language placeholder patterns (e.g., {{french}}, {{spanish}})
-		result = result.replace(new RegExp(`\\{\\{${targetLang}\\}\\}`, "gi"), term.targetTerm);
-		result = result.replace(new RegExp(`\\{\\{${sourceLang}\\}\\}`, "gi"), term.sourceTerm || "");
-
-		// Generic placeholder patterns
-		result = result.replace(/\{\{targetTerm\}\}/gi, term.targetTerm);
-		result = result.replace(/\{\{sourceTerm\}\}/gi, term.sourceTerm || "");
-		result = result.replace(/\{\{type\}\}/gi, term.type || "");
-		result = result.replace(/\{\{context\}\}/gi, term.context || "");
-		result = result.replace(/\{\{examples\}\}/gi, term.examples || "");
-
-		// Language name placeholders (e.g., "SourceLanguage" -> "Spanish")
+    // Language name placeholders (e.g., "SourceLanguage" -> "Spanish")
 		result = result.replace(/SourceLanguage/g, this.settings.sourceLanguage);
-    result = result.replace(/TargetLanguage/g, this.settings.targetLanguage);
+		result = result.replace(/TargetLanguage/g, this.settings.targetLanguage);
 
 		// Templater-style placeholders
 		result = result.replace(/<% tp\.file\.title %>/g, term.targetTerm);
-
 		return result;
 	}
 

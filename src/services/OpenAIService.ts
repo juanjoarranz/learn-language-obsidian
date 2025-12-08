@@ -1,19 +1,22 @@
-import { App, TFile, requestUrl, RequestUrlResponse } from "obsidian";
+import { App, TFile, requestUrl } from "obsidian";
 import {
 	LearnLanguageSettings,
 	AITermResponse,
 	OpenAIAssistantConfig
 } from "../types";
+import { getDataFromJsonFile, saveJsonFile } from "../utils/dataManagement";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
+const CONFIG_FILE_PATH = "AI/AskTermAssistant.json";
 
 /**
  * OpenAIService - Handles all OpenAI API interactions
- * Replaces logic from dvViews/openAI/quickAdd/createOrUpdateTerm.js
+ * Based on logic from dvViews/openAI/quickAdd/createOrUpdateTerm.js
  */
 export class OpenAIService {
 	private app: App;
 	private settings: LearnLanguageSettings;
+	private assistantConfig: OpenAIAssistantConfig | null = null;
 
 	constructor(app: App, settings: LearnLanguageSettings) {
 		this.app = app;
@@ -35,6 +38,23 @@ export class OpenAIService {
 	}
 
 	/**
+	 * Load assistant configuration from JSON file
+	 */
+	private async loadAssistantConfig(): Promise<OpenAIAssistantConfig | null> {
+		this.assistantConfig = await getDataFromJsonFile<OpenAIAssistantConfig>(this.app, CONFIG_FILE_PATH);
+		return this.assistantConfig;
+	}
+
+	/**
+	 * Save assistant configuration to JSON file
+	 */
+	private async saveAssistantConfig(): Promise<void> {
+		if (this.assistantConfig) {
+			await saveJsonFile(this.app, CONFIG_FILE_PATH, this.assistantConfig);
+		}
+	}
+
+	/**
 	 * Ask AI for term translation and classification
 	 */
 	async askForTerm(term: string): Promise<AITermResponse | null> {
@@ -44,22 +64,129 @@ export class OpenAIService {
 		}
 
 		try {
-			// Ensure we have an assistant and thread
-			await this.ensureAssistantAndThread();
+			// Load assistant config
+			await this.loadAssistantConfig();
 
-			// Send the question
-			const response = await this.askQuestion(term);
-
-			if (!response) return null;
-
-			// Parse JSON response
-			try {
-				const parsed = JSON.parse(response) as AITermResponse;
-				return parsed;
-			} catch {
-				console.error("Failed to parse AI response as JSON:", response);
+			if (!this.assistantConfig) {
+				console.error("Assistant config not found");
 				return null;
 			}
+
+			console.log("assistantConfig loaded:", this.assistantConfig);
+
+			let {
+				updateAssistantId,
+				isInitialQuestion,
+				withAdditionalInstructions
+			} = this.assistantConfig;
+
+			let termsFileId: string = this.assistantConfig.termsFileId || "";
+			let contextFileId: string = this.assistantConfig.contextFileId || "";
+			let assistantId: string = this.assistantConfig.assistantId || "";
+			let threadId: string = this.assistantConfig.threadId || "";
+
+			// Check if we need to recreate assistant (when updateAssistantId flag is true)
+			if (updateAssistantId || !assistantId) {
+				console.log("Creating new assistant...");
+
+				// Upload files if needed
+				if (this.assistantConfig.updateTermsStructure || !termsFileId) {
+					const newTermsFileId = await this.uploadFile(this.settings.termTypesFile);
+					termsFileId = newTermsFileId || "";
+					this.assistantConfig.termsFileId = termsFileId;
+				}
+
+				if (this.assistantConfig.updateContextStructure || !contextFileId) {
+					const newContextFileId = await this.uploadFile(this.settings.contextTypesFile);
+					contextFileId = newContextFileId || "";
+					this.assistantConfig.contextFileId = contextFileId;
+				}
+
+				const newAssistantId = await this.createAssistant(termsFileId, contextFileId);
+				assistantId = newAssistantId || "";
+				this.assistantConfig.assistantId = assistantId;
+				this.assistantConfig.updateAssistantId = false;
+				this.assistantConfig.updateTermsStructure = false;
+				this.assistantConfig.updateContextStructure = false;
+				this.assistantConfig.isInitialQuestion = true;
+				this.assistantConfig.withAdditionalInstructions = true;
+
+				await this.saveAssistantConfig();
+
+				isInitialQuestion = true;
+				withAdditionalInstructions = true;
+			}
+
+			// Create new thread if needed (isInitialQuestion flag)
+			if (isInitialQuestion || !threadId) {
+				console.log("Creating new thread...");
+				const fileIds = [termsFileId, contextFileId].filter(id => id.length > 0);
+				const newThreadId = await this.createThread(fileIds);
+
+				if (!newThreadId) {
+					console.error("Failed to create thread");
+					return null;
+				}
+
+				threadId = newThreadId;
+				this.assistantConfig.threadId = threadId;
+				this.assistantConfig.isInitialQuestion = false;
+
+				// Send initial question
+				await this.sendInitialQuestion(assistantId, threadId, termsFileId, contextFileId);
+				await this.sleep(2000);
+
+				await this.saveAssistantConfig();
+			}
+
+			// Send additional instructions if needed
+			if (withAdditionalInstructions) {
+				console.log("Sending additional instructions...");
+				await this.sendAdditionalInstructions(assistantId, threadId, termsFileId, contextFileId);
+
+				this.assistantConfig.withAdditionalInstructions = false;
+				await this.saveAssistantConfig();
+
+				await this.sleep(2000);
+			}
+
+			// Now ask the actual question
+			console.log("Asking for term:", term);
+			const response = await this.askAssistant(assistantId, threadId, term);
+
+			if (!response) {
+				console.error("No response from assistant");
+				return null;
+			}
+
+			// Handle rate limit error - retry with new thread
+			if (response === "rate_limit_exceeded") {
+				console.log("Rate limit exceeded, creating new thread and retrying...");
+
+				const fileIds = [termsFileId, contextFileId].filter(id => id.length > 0);
+				const retryThreadId = await this.createThread(fileIds);
+				if (!retryThreadId) return null;
+
+				threadId = retryThreadId;
+				this.assistantConfig.threadId = threadId;
+				await this.saveAssistantConfig();
+
+				await this.sendInitialQuestion(assistantId, threadId, termsFileId, contextFileId);
+				await this.sleep(2000);
+
+				await this.sendAdditionalInstructions(assistantId, threadId, termsFileId, contextFileId);
+				await this.sleep(2000);
+
+				const retryResponse = await this.askAssistant(assistantId, threadId, term);
+				if (!retryResponse || retryResponse === "rate_limit_exceeded") {
+					return null;
+				}
+
+				return this.parseJsonResponse(retryResponse);
+			}
+
+			return this.parseJsonResponse(response);
+
 		} catch (error) {
 			console.error("Error asking AI for term:", error);
 			return null;
@@ -67,18 +194,14 @@ export class OpenAIService {
 	}
 
 	/**
-	 * Ensure assistant and thread are set up
+	 * Parse JSON response from assistant
 	 */
-	private async ensureAssistantAndThread(): Promise<void> {
-		// Check if we need to create/update assistant
-		if (!this.settings.assistantId) {
-			await this.createAssistant();
-		}
-
-		// Check if we need to create thread
-		if (!this.settings.threadId) {
-			await this.createThread();
-			await this.sendInitialInstructions();
+	private parseJsonResponse(response: string): AITermResponse | null {
+		try {
+			return JSON.parse(response) as AITermResponse;
+		} catch {
+			console.error("Failed to parse AI response as JSON:", response);
+			return null;
 		}
 	}
 
@@ -109,6 +232,7 @@ export class OpenAIService {
 			});
 
 			const data = await response.json();
+			console.log("File uploaded:", data);
 			return data.id || null;
 		} catch (error) {
 			console.error("Error uploading file:", error);
@@ -138,137 +262,159 @@ export class OpenAIService {
 	/**
 	 * Create OpenAI Assistant
 	 */
-	private async createAssistant(): Promise<void> {
-		// Upload term types and context files if needed
-		if (this.settings.autoSyncTypesWithOpenAI) {
-			if (!this.settings.termsFileId) {
-				const termsFileId = await this.uploadFile(this.settings.termTypesFile);
-				if (termsFileId) {
-					this.settings.termsFileId = termsFileId;
-				}
-			}
-
-			if (!this.settings.contextFileId) {
-				const contextFileId = await this.uploadFile(this.settings.contextTypesFile);
-				if (contextFileId) {
-					this.settings.contextFileId = contextFileId;
-				}
-			}
-		}
-
-		const assistantConfig = {
-			name: "French Language Learning Assistant",
-			description: "Assistant for French language learning - provides translations, term types, contexts, and examples",
-			model: "gpt-4-turbo-preview",
-			instructions: `Eres un asistente experto en el idioma francés. Tu trabajo es ayudar a clasificar términos franceses proporcionando:
-1. Traducción al español
-2. Tipo de término basado en los tipos disponibles
-3. Contexto de uso
-4. Ejemplos de uso
-
-Siempre responde en formato JSON con la siguiente estructura:
-{
-  "spanish": "<traducción al español>",
-  "type": "<tipo del término>",
-  "context": "<contexto de uso>",
-  "examples": "<ejemplo 1><br><ejemplo 2><br><ejemplo 3>"
-}`,
-			tools: [{ type: "file_search" }],
-			tool_resources: this.settings.termsFileId && this.settings.contextFileId ? {
-				file_search: {
-					vector_stores: [{
-						file_ids: [this.settings.termsFileId, this.settings.contextFileId]
-					}]
-				}
-			} : undefined,
-			response_format: { type: "json_object" },
-		};
+	private async createAssistant(termsFileId: string, contextFileId: string): Promise<string | null> {
+		const termTypesFileName = "TermTypes.txt";
+		const contextTypesFileName = "ContextTypes.txt";
 
 		try {
-			const response = await requestUrl({
-				url: `${OPENAI_BASE_URL}/assistants`,
+			const response = await fetch(`${OPENAI_BASE_URL}/assistants`, {
 				method: "POST",
 				headers: {
 					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
 					"Content-Type": "application/json",
 					"OpenAI-Beta": "assistants=v2",
 				},
-				body: JSON.stringify(assistantConfig),
+				body: JSON.stringify({
+					model: "gpt-4o",
+					instructions: `Usa los ficheros adjuntos para clasificar el término en francés que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en español que hay entre paréntesis.
+
+El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
+
+El valor context lo debes deducir a partir del fichero ${contextTypesFileName} con id ${contextFileId}.`,
+					tools: [{ type: "file_search" }]
+				}),
 			});
 
-			const data = response.json;
-			this.settings.assistantId = data.id;
+			const data = await response.json();
+			console.log("Assistant created:", data);
+			return data.id || null;
 		} catch (error) {
 			console.error("Error creating assistant:", error);
-			throw error;
+			return null;
 		}
 	}
 
 	/**
-	 * Create a new thread
+	 * Create a new thread with attached files
 	 */
-	private async createThread(): Promise<void> {
-		const threadConfig: Record<string, unknown> = {};
-
-		// Attach files to thread if available
-		if (this.settings.termsFileId || this.settings.contextFileId) {
-			const fileIds: string[] = [];
-			if (this.settings.termsFileId) fileIds.push(this.settings.termsFileId);
-			if (this.settings.contextFileId) fileIds.push(this.settings.contextFileId);
-
-			threadConfig.tool_resources = {
-				file_search: {
-					vector_stores: [{
-						file_ids: fileIds
-					}]
-				}
-			};
-		}
+	private async createThread(fileIds: string[]): Promise<string | null> {
+		const attachments = fileIds.map(id => ({
+			file_id: id,
+			tools: [{ type: "file_search" }]
+		}));
 
 		try {
-			const response = await requestUrl({
-				url: `${OPENAI_BASE_URL}/threads`,
+			const response = await fetch(`${OPENAI_BASE_URL}/threads`, {
 				method: "POST",
 				headers: {
 					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
 					"Content-Type": "application/json",
 					"OpenAI-Beta": "assistants=v2",
 				},
-				body: JSON.stringify(threadConfig),
+				body: JSON.stringify({
+					messages: [{
+						role: "user",
+						content: "Consulta los archivos adjuntos para responder.",
+						attachments
+					}]
+				}),
 			});
 
-			const data = response.json;
-			this.settings.threadId = data.id;
+			const data = await response.json();
+			console.log("Thread created:", data);
+			return data.id || null;
 		} catch (error) {
 			console.error("Error creating thread:", error);
-			throw error;
-		}
-	}
-
-	/**
-	 * Send initial instructions to the assistant
-	 */
-	private async sendInitialInstructions(): Promise<void> {
-		const initialQuestion = `Por cada término o expresión francesa que te suministre posteriormente, dime primero su traducción al español, luego el tipo de término (type), luego el contexto (context) y finalmente algunos ejemplos de uso. Responde siempre en formato JSON.`;
-
-		await this.askQuestion(initialQuestion);
-		// Wait a bit for the assistant to process
-		await this.sleep(2000);
-	}
-
-	/**
-	 * Ask a question to the assistant
-	 */
-	private async askQuestion(question: string): Promise<string | null> {
-		if (!this.settings.assistantId || !this.settings.threadId) {
-			console.error("Assistant or thread not configured");
 			return null;
 		}
+	}
+
+	/**
+	 * Send initial question to establish context
+	 */
+	private async sendInitialQuestion(
+		assistantId: string,
+		threadId: string,
+		termsFileId: string,
+		contextFileId: string
+	): Promise<void> {
+		const termTypesFileName = "TermTypes.txt";
+		const contextTypesFileName = "ContextTypes.txt";
+
+		const initialQuestion = `Por cada término o expresión que te suministre posteriormente, dime primero su traducción al español, luego el tipo de término (type) basado en el fichero ${termTypesFileName} con id ${termsFileId}, luego el contexto (context) basado en el fichero ${contextTypesFileName} con id ${contextFileId} y finalmente algunos ejemplos`;
+
+		await this.askAssistant(assistantId, threadId, initialQuestion);
+	}
+
+	/**
+	 * Send additional instructions for JSON response format
+	 */
+	private async sendAdditionalInstructions(
+		assistantId: string,
+		threadId: string,
+		termsFileId: string,
+		contextFileId: string
+	): Promise<void> {
+		const termTypesFileName = "TermTypes.txt";
+		const contextTypesFileName = "ContextTypes.txt";
+
+		const commonInstructions = `
+El valor del tipo de término debe ser el más exacto y preciso, por ejemplo #verbe/irrégulier/3/ir es más completo y preciso que #verbe/irrégulier/3.
+
+El valor del tipo de término puede ser múltiple, por ejemplo auberge se corresponde con #nom/commun, #nom/masculin y #nom/singulier. En estos casos establece el valor final type con cada uno de los tipos SEPARADOS por un espacio y una coma.
+
+Cuando un valor de tipo de término ya aparece en el nivel inferior, dicho valor no se duplica: por ejemplo dado que #verbe/régulier/1 ya contiene verbe, el valor #verbe no se debe repetir en el resultado final.
+
+Muy importante: el valor del tipo de término (type) se obtiene exclusivamente de los valores del fichero ${termTypesFileName} con id ${termsFileId}. No se pueden inventar nuevos valores.
+
+No inventes valores de type. Por ejemplo el type #préposition/loc_prépositionnelle no existe en el fichero ${termTypesFileName} con id ${termsFileId}. Utiliza el valor que mejor que se corresponda con el fichero ${termTypesFileName} con id ${termsFileId}.
+
+De igual forma el valor de context se obtiene exclusivamente de los valores del fichero ${contextTypesFileName} con id ${contextFileId} (no inventes nuevos valores). Por ejemplo el contexto #animals no existe en el fichero ${contextTypesFileName} con id ${contextFileId}, en su lugar debes utilizar el valor #env/animal que sí existe en el fichero ${contextTypesFileName} con id ${contextFileId}.
+
+No inventes valores de context. Por ejemplo el context #society no existe en el fichero ${contextTypesFileName} con id ${contextFileId}. Tampoco el valor #shopping/clothes existe en el fichero ${contextTypesFileName} con id ${contextFileId}. Tampoco existe el context #economy/agriculture.
+
+El context #economy/agriculture no existe en el fichero ${contextTypesFileName} con id ${contextFileId}. Deja el resultado en blanco o vacío en esos casos.
+
+Si el context de un término no se puede asociar a un valor del fichero ${contextTypesFileName} con id ${contextFileId} entonces se deja vacío.
+
+El valor del contexto puede ser nulo si el término no se puede asociar a ningún contexto, puede ser un sólo valor, o puede ser múltiple y en estos casos establece el valor final con cada uno de los tipos separados por coma.
+
+En los ejemplos encierra el término objetivo entre asteriscos, por ejemplo para el término arnaque un ejemplo sería "Elle a été victime d'une *arnaque* financière."
+
+Cuando se trate de un verbo los ejemplos que generes hazlo con diferentes formas verbales que ilustren su uso. Repito, cuando se trate de un verbo, los ejemplos deben siempre utilizar diferentes formas verbales. Respeta siempre esta instrucción.
+
+En la respuesta no quiero que muestres la referencia al fichero utilizado, tan sólo responde con el formato json.`;
+
+		const clarification = `
+Quiero la respuesta en formato json según el siguiente esquema:
+
+{
+  "spanish": <valor de la traducción al español>,
+  "type": <valor tipo de término por ejemplo #pronom/personnel/réfléchi o si es multiple pon los valores separadods por coma y espacio por ejemplo #nom/commun , #nom/masculin>,
+  "context": <valor del tipo del contexto por ejemplo #travel/transport>,
+  "examples": <ejemplo1<br>ejemplo2<br>ejemplo3>
+}
+
+No envuelvas la respuesta json con el calificador triple coma invertida-json. Limítate a devolver un string json con el esquema especificado anteriormente.
+
+${commonInstructions}`;
+
+		await this.askAssistant(assistantId, threadId, clarification);
+	}
+
+	/**
+	 * Ask a question to the assistant (core method based on legacy askAssistant)
+	 */
+	private async askAssistant(
+		assistantId: string,
+		threadId: string,
+		question: string
+	): Promise<string | null> {
+		console.log("Asking assistant:", question.substring(0, 100) + "...");
 
 		try {
 			// Add message to thread
-			await requestUrl({
-				url: `${OPENAI_BASE_URL}/threads/${this.settings.threadId}/messages`,
+			await fetch(`${OPENAI_BASE_URL}/threads/${threadId}/messages`, {
 				method: "POST",
 				headers: {
 					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
@@ -281,9 +427,10 @@ Siempre responde en formato JSON con la siguiente estructura:
 				}),
 			});
 
+			console.log(`Message sent to thread ${threadId}`);
+
 			// Run the assistant
-			const runResponse = await requestUrl({
-				url: `${OPENAI_BASE_URL}/threads/${this.settings.threadId}/runs`,
+			const runResponse = await fetch(`${OPENAI_BASE_URL}/threads/${threadId}/runs`, {
 				method: "POST",
 				headers: {
 					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
@@ -291,86 +438,87 @@ Siempre responde en formato JSON con la siguiente estructura:
 					"OpenAI-Beta": "assistants=v2",
 				},
 				body: JSON.stringify({
-					assistant_id: this.settings.assistantId,
+					assistant_id: assistantId,
 				}),
 			});
 
-			const runId = runResponse.json.id;
+			const runData = await runResponse.json();
+			console.log("Run started:", runData);
+
+			if (runData.error) {
+				console.error("Run error:", runData.error);
+				return null;
+			}
+
+			const runId = runData.id;
 
 			// Poll for completion
-			let status = runResponse.json.status;
-			let attempts = 0;
-			const maxAttempts = 60; // 60 seconds max
+			let status = "in_progress";
+			let runStatusData: { status: string; last_error?: { code: string } } = { status: "" };
 
-			while ((status === "in_progress" || status === "queued") && attempts < maxAttempts) {
-				await this.sleep(1000);
+			while (status === "in_progress" || status === "queued") {
+				await this.sleep(2000);
 
-				const statusResponse = await requestUrl({
-					url: `${OPENAI_BASE_URL}/threads/${this.settings.threadId}/runs/${runId}`,
+				const statusResponse = await fetch(
+					`${OPENAI_BASE_URL}/threads/${threadId}/runs/${runId}`,
+					{
+						method: "GET",
+						headers: {
+							"Authorization": `Bearer ${this.settings.openAIApiKey}`,
+							"OpenAI-Beta": "assistants=v2",
+						},
+					}
+				);
+
+				runStatusData = await statusResponse.json();
+				status = runStatusData.status;
+				console.log("Run status:", status);
+			}
+
+			// Handle failed run
+			if (status === "failed") {
+				const errorCode = runStatusData.last_error?.code;
+				console.error("Run failed:", runStatusData.last_error);
+				if (errorCode === "rate_limit_exceeded") {
+					return "rate_limit_exceeded";
+				}
+				return null;
+			}
+
+			if (status !== "completed") {
+				console.error(`Run did not complete. Status: ${status}`);
+				return null;
+			}
+
+			// Get messages
+			const messagesResponse = await fetch(
+				`${OPENAI_BASE_URL}/threads/${threadId}/messages`,
+				{
 					method: "GET",
 					headers: {
 						"Authorization": `Bearer ${this.settings.openAIApiKey}`,
 						"OpenAI-Beta": "assistants=v2",
 					},
-				});
-
-				status = statusResponse.json.status;
-				attempts++;
-			}
-
-			if (status !== "completed") {
-				console.error(`Run did not complete. Status: ${status}`);
-				if (status === "failed") {
-					return null;
 				}
-				// Cancel the run if still in progress
-				await this.cancelRun(runId);
-				return null;
+			);
+
+			const messagesData = await messagesResponse.json();
+			const assistantMessages = messagesData.data?.filter(
+				(msg: { role: string }) => msg.role === "assistant"
+			);
+
+			if (assistantMessages && assistantMessages.length > 0) {
+				const responseText = assistantMessages[0].content[0]?.text?.value;
+				console.log("Assistant response received");
+				return responseText || null;
 			}
 
-			// Get messages
-			const messagesResponse = await requestUrl({
-				url: `${OPENAI_BASE_URL}/threads/${this.settings.threadId}/messages?limit=1&order=desc`,
-				method: "GET",
-				headers: {
-					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-					"OpenAI-Beta": "assistants=v2",
-				},
-			});
-
-			const messages = messagesResponse.json.data;
-			if (messages && messages.length > 0) {
-				const lastMessage = messages[0];
-				if (lastMessage.role === "assistant" && lastMessage.content && lastMessage.content.length > 0) {
-					const textContent = lastMessage.content.find((c: { type: string }) => c.type === "text");
-					if (textContent) {
-						return textContent.text.value;
-					}
-				}
-			}
-
+			console.log("No assistant response found");
 			return null;
-		} catch (error) {
-			console.error("Error asking question:", error);
-			return null;
-		}
-	}
 
-	/**
-	 * Cancel a run
-	 */
-	private async cancelRun(runId: string): Promise<void> {
-		try {
-			await requestUrl({
-				url: `${OPENAI_BASE_URL}/threads/${this.settings.threadId}/runs/${runId}/cancel`,
-				method: "POST",
-				headers: {
-					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-					"OpenAI-Beta": "assistants=v2",
-				},
-			});
 		} catch (error) {
-			console.error("Error canceling run:", error);
+			console.error("Error asking assistant:", error);
+			return null;
 		}
 	}
 
@@ -378,39 +526,91 @@ Siempre responde en formato JSON con la siguiente estructura:
 	 * Reset thread (create new conversation)
 	 */
 	async resetThread(): Promise<void> {
-		this.settings.threadId = "";
-		await this.createThread();
-		await this.sendInitialInstructions();
+		if (!this.assistantConfig) {
+			await this.loadAssistantConfig();
+		}
+
+		if (this.assistantConfig) {
+			const fileIds = [
+				this.assistantConfig.termsFileId,
+				this.assistantConfig.contextFileId
+			].filter(Boolean);
+
+			const threadId = await this.createThread(fileIds);
+			if (threadId) {
+				this.assistantConfig.threadId = threadId;
+				this.assistantConfig.isInitialQuestion = true;
+				this.assistantConfig.withAdditionalInstructions = true;
+				await this.saveAssistantConfig();
+			}
+		}
 	}
 
 	/**
-	 * Sync types files with OpenAI
+	 * Force refresh - recreate assistant and thread
+	 */
+	async forceRefresh(): Promise<void> {
+		if (!this.assistantConfig) {
+			await this.loadAssistantConfig();
+		}
+
+		if (this.assistantConfig) {
+			this.assistantConfig.updateAssistantId = true;
+			this.assistantConfig.isInitialQuestion = true;
+			this.assistantConfig.withAdditionalInstructions = true;
+			await this.saveAssistantConfig();
+		}
+	}
+
+	/**
+	 * Sync types files with OpenAI - re-upload term and context files
 	 */
 	async syncTypesWithOpenAI(): Promise<void> {
-		// Delete old files
-		if (this.settings.termsFileId) {
-			await this.deleteFile(this.settings.termsFileId);
-			this.settings.termsFileId = "";
+		if (!this.assistantConfig) {
+			await this.loadAssistantConfig();
 		}
-		if (this.settings.contextFileId) {
-			await this.deleteFile(this.settings.contextFileId);
-			this.settings.contextFileId = "";
+
+		if (!this.assistantConfig) {
+			console.error("Could not load assistant config");
+			return;
+		}
+
+		// Delete old files if they exist
+		if (this.assistantConfig.termsFileId) {
+			await this.deleteFile(this.assistantConfig.termsFileId);
+		}
+		if (this.assistantConfig.contextFileId) {
+			await this.deleteFile(this.assistantConfig.contextFileId);
 		}
 
 		// Upload new files
 		const termsFileId = await this.uploadFile(this.settings.termTypesFile);
-		if (termsFileId) {
-			this.settings.termsFileId = termsFileId;
-		}
-
 		const contextFileId = await this.uploadFile(this.settings.contextTypesFile);
-		if (contextFileId) {
-			this.settings.contextFileId = contextFileId;
-		}
 
-		// Reset assistant and thread to use new files
-		this.settings.assistantId = "";
-		this.settings.threadId = "";
+		// Update config
+		this.assistantConfig.termsFileId = termsFileId || "";
+		this.assistantConfig.contextFileId = contextFileId || "";
+		this.assistantConfig.updateTermsStructure = false;
+		this.assistantConfig.updateContextStructure = false;
+		this.assistantConfig.updateAssistantId = true; // Need to recreate assistant with new files
+		this.assistantConfig.isInitialQuestion = true;
+		this.assistantConfig.withAdditionalInstructions = true;
+
+		await this.saveAssistantConfig();
+		console.log("Types synced with OpenAI:", {
+			termsFileId,
+			contextFileId
+		});
+	}
+
+	/**
+	 * Get current assistant config (for display in settings)
+	 */
+	async getAssistantConfig(): Promise<OpenAIAssistantConfig | null> {
+		if (!this.assistantConfig) {
+			await this.loadAssistantConfig();
+		}
+		return this.assistantConfig;
 	}
 
 	/**

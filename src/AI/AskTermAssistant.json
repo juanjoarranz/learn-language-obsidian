@@ -1,0 +1,12 @@
+{
+  "updateTermsStructure": false,
+  "updateContextStructure": false,
+  "updateAssistantId": false,
+  "isInitialQuestion": false,
+  "withAdditionalInstructions": false,
+  "jsonResponse": true,
+  "termsFileId": "file-9hnox2Qvwi94x9NMJSNoj2",
+  "contextFileId": "file-1TxFG6bMkYsRZLodcmwWiA",
+  "assistantId": "asst_OE8NaJ2FSWntDM4YY4AMPs0E",
+  "threadId": "thread_PJ0mpxaxijNnjXSgQilMUVnH"
+}

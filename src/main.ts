@@ -335,7 +335,7 @@ export default class LearnLanguagePlugin extends Plugin {
 			getVerbs: () => this.dictionaryService.getVerbs(),
 			getGrammarPages: () => this.dictionaryService.getGrammarPages(),
 			createTerm: async (term) => {
-				await this.termService.createOrUpdateTerm({
+				await this.termService.createOrUpdateTermPage({
 					targetTerm: term.targetWord || term.file?.basename || "",
 					sourceTerm: term.sourceWord,
 					type: term.type,

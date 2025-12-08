@@ -307,19 +307,22 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 				cls: "ll-status-ok"
 			});
 
-			if (this.plugin.settings.assistantId) {
-				openAIStatus.createEl("p", {
-					text: `Assistant ID: ${this.plugin.settings.assistantId.substring(0, 20)}...`,
-					cls: "ll-status-info"
-				});
-			}
+			// Show assistant config info asynchronously
+			this.plugin.openAIService.getAssistantConfig().then(config => {
+				if (config?.assistantId) {
+					openAIStatus.createEl("p", {
+						text: `Assistant ID: ${config.assistantId.substring(0, 20)}...`,
+						cls: "ll-status-info"
+					});
+				}
 
-			if (this.plugin.settings.threadId) {
-				openAIStatus.createEl("p", {
-					text: `Thread ID: ${this.plugin.settings.threadId.substring(0, 20)}...`,
-					cls: "ll-status-info"
-				});
-			}
+				if (config?.threadId) {
+					openAIStatus.createEl("p", {
+						text: `Thread ID: ${config.threadId.substring(0, 20)}...`,
+						cls: "ll-status-info"
+					});
+				}
+			});
 		} else {
 			openAIStatus.createEl("p", {
 				text: "⚠️ OpenAI API key not configured",
