@@ -76,7 +76,7 @@ export class AskAIModal extends Modal {
 		new Notice(`Asking AI for "${this.termValue}"...`);
 		const response = await this.plugin.openAIService.askForTerm(this.termValue);
 
-    console.log('JAA AI response:', response);
+    console.log('AI response:', response);
 
 	const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
 		if (response) {

@@ -46,7 +46,7 @@ export default class LearnLanguagePlugin extends Plugin {
 
 		// Initialize services
 		this.dictionaryService = new DictionaryService(this.app, this.settings);
-		this.openAIService = new OpenAIService(this.app, this.settings);
+		this.openAIService = new OpenAIService(this.app, this.settings, () => this.saveSettings());
 		this.termService = new TermService(this.app, this.settings);
 		this.filterService = new FilterService(this.app, this.settings);
 

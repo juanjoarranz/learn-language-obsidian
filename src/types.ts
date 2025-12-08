@@ -154,10 +154,18 @@ export interface LearnLanguageSettings {
 
 	// OpenAI settings
 	openAIApiKey: string;
-	// assistantId: string;
-	// threadId: string;
-	// termsFileId: string;
-	// contextFileId: string;
+  askTermAssistant: {
+    updateTermsStructure: boolean;
+    updateContextStructure: boolean;
+    updateAssistantId: boolean;
+    isInitialQuestion: boolean;
+    withAdditionalInstructions: boolean;
+    jsonResponse: boolean;
+    termsFileId: string,
+    contextFileId: string,
+    assistantId: string,
+    threadId: string
+  }
 
 	// Display settings
 	defaultPageSize: number;
@@ -181,10 +189,20 @@ export const DEFAULT_SETTINGS: LearnLanguageSettings = {
 	termTypesFile: "30. Grammar/TermTypes.txt",
 	contextTypesFile: "30. Grammar/ContextTypes.txt",
 	openAIApiKey: "",
-	// assistantId: "",
-	// threadId: "",
-	// termsFileId: "",
-	// contextFileId: "",
+
+  askTermAssistant: {
+    updateTermsStructure: true,
+    updateContextStructure: true,
+    updateAssistantId: true,
+    isInitialQuestion: true,
+    withAdditionalInstructions: true,
+    jsonResponse: true,
+    termsFileId: "",
+    contextFileId: "",
+    assistantId: "",
+    threadId: ""
+  },
+
 	defaultPageSize: 100,
 	enableStudyMode: true,
 	autoSyncTypesWithOpenAI: true,

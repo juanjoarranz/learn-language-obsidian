@@ -1,13 +1,10 @@
 import { App, TFile, requestUrl } from "obsidian";
 import {
 	LearnLanguageSettings,
-	AITermResponse,
-	OpenAIAssistantConfig
+	AITermResponse
 } from "../types";
-import { getDataFromJsonFile, saveJsonFile } from "../utils/dataManagement";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
-const CONFIG_FILE_PATH = "AI/AskTermAssistant.json";
 
 /**
  * OpenAIService - Handles all OpenAI API interactions
@@ -16,11 +13,12 @@ const CONFIG_FILE_PATH = "AI/AskTermAssistant.json";
 export class OpenAIService {
 	private app: App;
 	private settings: LearnLanguageSettings;
-	private assistantConfig: OpenAIAssistantConfig | null = null;
+	private saveSettingsCallback: () => Promise<void>;
 
-	constructor(app: App, settings: LearnLanguageSettings) {
+	constructor(app: App, settings: LearnLanguageSettings, saveSettingsCallback: () => Promise<void>) {
 		this.app = app;
 		this.settings = settings;
+		this.saveSettingsCallback = saveSettingsCallback;
 	}
 
 	/**
@@ -38,20 +36,17 @@ export class OpenAIService {
 	}
 
 	/**
-	 * Load assistant configuration from JSON file
+	 * Get assistant config from settings
 	 */
-	private async loadAssistantConfig(): Promise<OpenAIAssistantConfig | null> {
-		this.assistantConfig = await getDataFromJsonFile<OpenAIAssistantConfig>(this.app, CONFIG_FILE_PATH);
-		return this.assistantConfig;
+	private get assistantConfig() {
+		return this.settings.askTermAssistant;
 	}
 
 	/**
-	 * Save assistant configuration to JSON file
+	 * Save assistant config (saves entire settings)
 	 */
 	private async saveAssistantConfig(): Promise<void> {
-		if (this.assistantConfig) {
-			await saveJsonFile(this.app, CONFIG_FILE_PATH, this.assistantConfig);
-		}
+		await this.saveSettingsCallback();
 	}
 
 	/**
@@ -64,15 +59,7 @@ export class OpenAIService {
 		}
 
 		try {
-			// Load assistant config
-			await this.loadAssistantConfig();
-
-			if (!this.assistantConfig) {
-				console.error("Assistant config not found");
-				return null;
-			}
-
-			console.log("assistantConfig loaded:", this.assistantConfig);
+			console.log("assistantConfig:", this.assistantConfig);
 
 			let {
 				updateAssistantId,
@@ -526,36 +513,14 @@ ${commonInstructions}`;
 	 * Reset thread (create new conversation)
 	 */
 	async resetThread(): Promise<void> {
-		if (!this.assistantConfig) {
-			await this.loadAssistantConfig();
-		}
+		const fileIds = [
+			this.assistantConfig.termsFileId,
+			this.assistantConfig.contextFileId
+		].filter(Boolean);
 
-		if (this.assistantConfig) {
-			const fileIds = [
-				this.assistantConfig.termsFileId,
-				this.assistantConfig.contextFileId
-			].filter(Boolean);
-
-			const threadId = await this.createThread(fileIds);
-			if (threadId) {
-				this.assistantConfig.threadId = threadId;
-				this.assistantConfig.isInitialQuestion = true;
-				this.assistantConfig.withAdditionalInstructions = true;
-				await this.saveAssistantConfig();
-			}
-		}
-	}
-
-	/**
-	 * Force refresh - recreate assistant and thread
-	 */
-	async forceRefresh(): Promise<void> {
-		if (!this.assistantConfig) {
-			await this.loadAssistantConfig();
-		}
-
-		if (this.assistantConfig) {
-			this.assistantConfig.updateAssistantId = true;
+		const threadId = await this.createThread(fileIds);
+		if (threadId) {
+			this.assistantConfig.threadId = threadId;
 			this.assistantConfig.isInitialQuestion = true;
 			this.assistantConfig.withAdditionalInstructions = true;
 			await this.saveAssistantConfig();
@@ -563,18 +528,19 @@ ${commonInstructions}`;
 	}
 
 	/**
+	 * Force refresh - recreate assistant and thread
+	 */
+	async forceRefresh(): Promise<void> {
+		this.assistantConfig.updateAssistantId = true;
+		this.assistantConfig.isInitialQuestion = true;
+		this.assistantConfig.withAdditionalInstructions = true;
+		await this.saveAssistantConfig();
+	}
+
+	/**
 	 * Sync types files with OpenAI - re-upload term and context files
 	 */
 	async syncTypesWithOpenAI(): Promise<void> {
-		if (!this.assistantConfig) {
-			await this.loadAssistantConfig();
-		}
-
-		if (!this.assistantConfig) {
-			console.error("Could not load assistant config");
-			return;
-		}
-
 		// Delete old files if they exist
 		if (this.assistantConfig.termsFileId) {
 			await this.deleteFile(this.assistantConfig.termsFileId);
@@ -606,10 +572,7 @@ ${commonInstructions}`;
 	/**
 	 * Get current assistant config (for display in settings)
 	 */
-	async getAssistantConfig(): Promise<OpenAIAssistantConfig | null> {
-		if (!this.assistantConfig) {
-			await this.loadAssistantConfig();
-		}
+	getAssistantConfig(): typeof this.settings.askTermAssistant {
 		return this.assistantConfig;
 	}
 
