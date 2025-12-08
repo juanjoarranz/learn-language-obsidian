@@ -73,14 +73,16 @@ export class AskAIModal extends Modal {
 			return;
 		}
 
-		new Notice("Asking AI...");
+		new Notice(`Asking AI for "${this.termValue}"...`);
 		const response = await this.plugin.openAIService.askForTerm(this.termValue);
+
+    console.log('JAA AI response:', response);
 
 		if (response) {
 			// Create the term with AI response
 			const file = await this.plugin.termService.createOrUpdateTerm({
-				french: this.termValue,
-				spanish: response.spanish,
+				targetTerm: this.termValue,
+				sourceTerm: response.spanish,
 				type: response.type,
 				context: response.context,
 				examples: response.examples,

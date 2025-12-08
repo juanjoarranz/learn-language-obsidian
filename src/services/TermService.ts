@@ -29,13 +29,13 @@ export class TermService {
 	 * Create or update a term page
 	 */
 	async createOrUpdateTerm(term: {
-		french: string;
-		spanish?: string;
+		targetTerm: string;
+		sourceTerm?: string;
 		type?: string;
 		context?: string;
 		examples?: string;
 	}): Promise<TFile | null> {
-		const fileName = term.french;
+		const fileName = term.targetTerm;
 		const filePath = `${this.settings.dictionaryFolder}/${fileName}.md`;
 
 		// Check if file already exists
@@ -55,8 +55,8 @@ export class TermService {
 	 * Create a new term file from template
 	 */
 	async createTermFile(term: {
-		french: string;
-		spanish?: string;
+		targetTerm: string;
+		sourceTerm?: string;
 		type?: string;
 		context?: string;
 		examples?: string;
@@ -77,14 +77,14 @@ export class TermService {
 		// Replace placeholders and set values
 		content = this.replacePlaceholders(content, term);
 
-		const filePath = `${this.settings.dictionaryFolder}/${term.french}.md`;
+		const filePath = `${this.settings.dictionaryFolder}/${term.targetTerm}.md`;
 
 		try {
 			const newFile = await this.app.vault.create(filePath, content);
 
 			// Update frontmatter
 			await this.app.fileManager.processFrontMatter(newFile, (fm) => {
-				if (term.spanish) fm.Spanish = term.spanish;
+				if (term.sourceTerm) fm.Spanish = term.sourceTerm;
 			});
 
 			return newFile;
@@ -98,15 +98,15 @@ export class TermService {
 	 * Update an existing term file
 	 */
 	async updateTermFile(file: TFile, term: {
-		french: string;
-		spanish?: string;
+		targetTerm: string;
+		sourceTerm?: string;
 		type?: string;
 		context?: string;
 		examples?: string;
 	}): Promise<void> {
 		// Update frontmatter
 		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			if (term.spanish !== undefined) fm.Spanish = term.spanish;
+			if (term.sourceTerm !== undefined) fm.Spanish = term.sourceTerm;
 		});
 
 		// Update inline fields
@@ -130,8 +130,8 @@ export class TermService {
 	 */
 	async updateTermFromAI(french: string, aiResponse: AITermResponse): Promise<TFile | null> {
 		return await this.createOrUpdateTerm({
-			french,
-			spanish: aiResponse.spanish,
+			targetTerm: french,
+			sourceTerm: aiResponse.spanish,
 			type: aiResponse.type,
 			context: aiResponse.context,
 			examples: aiResponse.examples,
@@ -200,8 +200,8 @@ Project:: [[Learn French]]
 	 * Replace placeholders in template content
 	 */
 	private replacePlaceholders(content: string, term: {
-		french: string;
-		spanish?: string;
+		targetTerm: string;
+		sourceTerm?: string;
 		type?: string;
 		context?: string;
 		examples?: string;
@@ -209,14 +209,14 @@ Project:: [[Learn French]]
 		let result = content;
 
 		// Common placeholder patterns
-		result = result.replace(/\{\{french\}\}/gi, term.french);
-		result = result.replace(/\{\{spanish\}\}/gi, term.spanish || "");
+		result = result.replace(/\{\{french\}\}/gi, term.targetTerm);
+		result = result.replace(/\{\{spanish\}\}/gi, term.sourceTerm || "");
 		result = result.replace(/\{\{type\}\}/gi, term.type || "");
 		result = result.replace(/\{\{context\}\}/gi, term.context || "");
 		result = result.replace(/\{\{examples\}\}/gi, term.examples || "");
 
 		// Templater-style placeholders
-		result = result.replace(/<% tp\.file\.title %>/g, term.french);
+		result = result.replace(/<% tp\.file\.title %>/g, term.targetTerm);
 
 		return result;
 	}

@@ -21,16 +21,16 @@ export class TermModal extends Modal {
 	private existingFilePath: string | null = null;
 
 	// Form values
-	private frenchValue: string = "";
-	private spanishValue: string = "";
+	private targetValue: string = "";
+	private sourceValue: string = "";
 	private typeValue: string = "";
 	private contextValue: string = "";
 	private examplesValue: string = "";
 
 	// Callbacks
 	private onSubmit: ((result: {
-		french: string;
-		spanish: string;
+		targetTerm: string;
+		sourceTerm: string;
 		type: string;
 		context: string;
 		examples: string;
@@ -45,16 +45,16 @@ export class TermModal extends Modal {
 	 * Open modal for creating a new term
 	 */
 	openForCreate(onSubmit?: (result: {
-		french: string;
-		spanish: string;
+		targetTerm: string;
+		sourceTerm: string;
 		type: string;
 		context: string;
 		examples: string;
 	}) => void): void {
 		this.isEditing = false;
 		this.existingFilePath = null;
-		this.frenchValue = "";
-		this.spanishValue = "";
+		this.targetValue = "";
+		this.sourceValue = "";
 		this.typeValue = "";
 		this.contextValue = "";
 		this.examplesValue = "";
@@ -68,15 +68,15 @@ export class TermModal extends Modal {
 	openForEdit(
 		filePath: string,
 		values: {
-			french: string;
-			spanish: string;
+			target: string;
+			source: string;
 			type: string;
 			context: string;
 			examples: string;
 		},
 		onSubmit?: (result: {
-			french: string;
-			spanish: string;
+			targetTerm: string;
+			sourceTerm: string;
 			type: string;
 			context: string;
 			examples: string;
@@ -84,8 +84,8 @@ export class TermModal extends Modal {
 	): void {
 		this.isEditing = true;
 		this.existingFilePath = filePath;
-		this.frenchValue = values.french;
-		this.spanishValue = values.spanish;
+		this.targetValue = values.target;
+		this.sourceValue = values.source;
 		this.typeValue = values.type;
 		this.contextValue = values.context;
 		this.examplesValue = values.examples;
@@ -97,6 +97,8 @@ export class TermModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("ll-term-modal");
+    const targetLanguage = this.plugin.settings.targetLanguage || "French";
+    const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
 
 		// Title
 		contentEl.createEl("h2", {
@@ -108,14 +110,14 @@ export class TermModal extends Modal {
 
 		// French input
 		new Setting(form)
-			.setName("French")
-			.setDesc("The French term or expression")
+			.setName(targetLanguage)
+			.setDesc(`The ${targetLanguage} term or expression`)
 			.addText(text => {
 				text
-					.setPlaceholder("Enter French term")
-					.setValue(this.frenchValue)
+					.setPlaceholder(`Enter ${targetLanguage} term`)
+					.setValue(this.targetValue)
 					.onChange(value => {
-						this.frenchValue = value;
+						this.targetValue = value;
 					});
 
 				if (this.isEditing) {
@@ -125,14 +127,14 @@ export class TermModal extends Modal {
 
 		// Spanish input
 		new Setting(form)
-			.setName("Spanish")
-			.setDesc("Translation to Spanish")
+			.setName(sourceLanguage)
+			.setDesc(`Translation to ${sourceLanguage}`)
 			.addText(text => {
 				text
-					.setPlaceholder("Enter Spanish translation")
-					.setValue(this.spanishValue)
+					.setPlaceholder(`Enter ${sourceLanguage} translation`)
+					.setValue(this.sourceValue)
 					.onChange(value => {
-						this.spanishValue = value;
+						this.sourceValue = value;
 					});
 			});
 
@@ -185,13 +187,13 @@ export class TermModal extends Modal {
 				.setButtonText("Ask AI")
 				.setIcon("bot")
 				.onClick(async () => {
-					if (!this.frenchValue.trim()) {
-						new Notice("Please enter a French term first");
+					if (!this.targetValue.trim()) {
+						new Notice(`Please enter a ${targetLanguage} term first`);
 						return;
 					}
 
 					new Notice("Asking AI...");
-					const response = await this.plugin.openAIService.askForTerm(this.frenchValue);
+					const response = await this.plugin.openAIService.askForTerm(this.targetValue);
 
 					if (response) {
 						this.applyAIResponse(response);
@@ -222,7 +224,7 @@ export class TermModal extends Modal {
 	 * Apply AI response to form fields
 	 */
 	private applyAIResponse(response: AITermResponse): void {
-		this.spanishValue = response.spanish;
+		this.sourceValue = response.spanish;
 		this.typeValue = response.type;
 		this.contextValue = response.context;
 		this.examplesValue = response.examples;
@@ -235,14 +237,15 @@ export class TermModal extends Modal {
 	 * Handle form submission
 	 */
 	private async handleSubmit(): Promise<void> {
-		if (!this.frenchValue.trim()) {
-			new Notice("French term is required");
+    const targetLanguage = this.plugin.settings.targetLanguage || "French";
+		if (!this.targetValue.trim()) {
+			new Notice(`${targetLanguage} term is required`);
 			return;
 		}
 
 		const result = {
-			french: this.frenchValue.trim(),
-			spanish: this.spanishValue.trim(),
+			targetTerm: this.targetValue.trim(),
+			sourceTerm: this.sourceValue.trim(),
 			type: this.typeValue.trim(),
 			context: this.contextValue.trim(),
 			examples: this.examplesValue.trim(),
@@ -255,12 +258,12 @@ export class TermModal extends Modal {
 					this.app.vault.getAbstractFileByPath(this.existingFilePath) as any,
 					result
 				);
-				new Notice(`Term "${result.french}" updated!`);
+				new Notice(`Term "${result.targetTerm}" updated!`);
 			} else {
 				// Create new term
 				const file = await this.plugin.termService.createOrUpdateTerm(result);
 				if (file) {
-					new Notice(`Term "${result.french}" created!`);
+					new Notice(`Term "${result.targetTerm}" created!`);
 					// Open the new file
 					await this.app.workspace.openLinkText(file.path, "");
 				}

@@ -307,8 +307,8 @@ export default class LearnLanguagePlugin extends Plugin {
 		this.termModal.openForEdit(
 			file.path,
 			{
-				french: file.basename,
-				spanish: fm.Spanish || fm.spanish || "",
+				target: file.basename,
+				source: fm.Spanish || fm.spanish || "",
 				type: inlineFields.Type || "",
 				context: inlineFields.Context || "",
 				examples: inlineFields.Examples || "",
@@ -334,8 +334,8 @@ export default class LearnLanguagePlugin extends Plugin {
 			getGrammarPages: () => this.dictionaryService.getGrammarPages(),
 			createTerm: async (term) => {
 				await this.termService.createOrUpdateTerm({
-					french: term.targetWord || term.file?.basename || "",
-					spanish: term.sourceWord,
+					targetTerm: term.targetWord || term.file?.basename || "",
+					sourceTerm: term.sourceWord,
 					type: term.type,
 					context: term.context,
 					examples: term.examples,
@@ -345,8 +345,8 @@ export default class LearnLanguagePlugin extends Plugin {
 				const file = this.app.vault.getAbstractFileByPath(filePath);
 				if (file instanceof TFile) {
 					await this.termService.updateTermFile(file, {
-						french: file.basename,
-						spanish: updates.sourceWord,
+						targetTerm: file.basename,
+						sourceTerm: updates.sourceWord,
 						type: updates.type,
 						context: updates.context,
 						examples: updates.examples,
