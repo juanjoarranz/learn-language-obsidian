@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, Notice, ButtonComponent, TFolder, AbstractInputSuggest } from "obsidian";
+import { App, PluginSettingTab, Setting, Notice, ButtonComponent, TFolder, TFile, AbstractInputSuggest } from "obsidian";
 import type LearnLanguagePlugin from "./main";
 import { LANGUAGE_LOCALE_MAP } from "./types";
 
@@ -37,6 +37,49 @@ class FolderSuggest extends AbstractInputSuggest<TFolder> {
 
 	selectSuggestion(folder: TFolder): void {
 		this.inputEl.value = folder.path;
+		this.inputEl.trigger("input");
+		this.close();
+	}
+}
+
+/**
+ * File suggester for markdown file inputs
+ */
+class FileSuggest extends AbstractInputSuggest<TFile> {
+	private inputEl: HTMLInputElement;
+	private extension: string;
+
+	constructor(app: App, inputEl: HTMLInputElement, extension: string = "md") {
+		super(app, inputEl);
+		this.inputEl = inputEl;
+		this.extension = extension;
+	}
+
+	getSuggestions(inputStr: string): TFile[] {
+		const abstractFiles = this.app.vault.getAllLoadedFiles();
+		const files: TFile[] = [];
+		const lowerCaseInputStr = inputStr.toLowerCase();
+
+		abstractFiles.forEach((file) => {
+			if (
+				file instanceof TFile &&
+				file.extension === this.extension &&
+				file.path.toLowerCase().contains(lowerCaseInputStr) &&
+				!file.path.includes("_assets")
+			) {
+				files.push(file);
+			}
+		});
+
+		return files.sort((a, b) => a.path.localeCompare(b.path));
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement): void {
+		el.setText(file.path);
+	}
+
+	selectSuggestion(file: TFile): void {
+		this.inputEl.value = file.path;
 		this.inputEl.trigger("input");
 		this.close();
 	}
@@ -151,6 +194,20 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.templatesFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.templatesFolder = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Term template file")
+			.setDesc("Template file for creating new terms (leave empty to use default)")
+			.addSearch(search => {
+				new FileSuggest(this.app, search.inputEl, "md");
+				search
+					.setPlaceholder("90. TEMPLATES/tpl - New Term.md")
+					.setValue(this.plugin.settings.termTemplateFile)
+					.onChange(async (value) => {
+						this.plugin.settings.termTemplateFile = value;
 						await this.plugin.saveSettings();
 					});
 			});

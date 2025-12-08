@@ -61,16 +61,17 @@ export class TermService {
 		context?: string;
 		examples?: string;
 	}): Promise<TFile | null> {
-		const templatePath = `${this.settings.templatesFolder}/tpl - New French Term.md`;
-		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-
+		// Use configured template or fall back to default content
 		let content: string;
 
-		if (templateFile instanceof TFile) {
-			// Use template
-			content = await this.app.vault.read(templateFile);
+		if (this.settings.termTemplateFile) {
+			const templateFile = this.app.vault.getAbstractFileByPath(this.settings.termTemplateFile);
+			if (templateFile instanceof TFile) {
+				content = await this.app.vault.read(templateFile);
+			} else {
+				content = this.getDefaultTermContent();
+			}
 		} else {
-			// Create default content
 			content = this.getDefaultTermContent();
 		}
 
@@ -107,7 +108,7 @@ export class TermService {
 	}): Promise<void> {
 		// Update frontmatter
 		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			if (term.sourceTerm !== undefined) fm.Spanish = term.sourceTerm;
+			if (term.sourceTerm !== undefined) fm[this.settings.sourceLanguage] = term.sourceTerm;
 		});
 
 		// Update inline fields
@@ -210,13 +211,23 @@ Project:: [[Learn French]]
 		examples?: string;
 	}): string {
 		let result = content;
+		const targetLang = this.settings.targetLanguage.toLowerCase();
+		const sourceLang = this.settings.sourceLanguage.toLowerCase();
 
-		// Common placeholder patterns
-		result = result.replace(/\{\{french\}\}/gi, term.targetTerm);
-		result = result.replace(/\{\{spanish\}\}/gi, term.sourceTerm || "");
+		// Dynamic language placeholder patterns (e.g., {{french}}, {{spanish}})
+		result = result.replace(new RegExp(`\\{\\{${targetLang}\\}\\}`, "gi"), term.targetTerm);
+		result = result.replace(new RegExp(`\\{\\{${sourceLang}\\}\\}`, "gi"), term.sourceTerm || "");
+
+		// Generic placeholder patterns
+		result = result.replace(/\{\{targetTerm\}\}/gi, term.targetTerm);
+		result = result.replace(/\{\{sourceTerm\}\}/gi, term.sourceTerm || "");
 		result = result.replace(/\{\{type\}\}/gi, term.type || "");
 		result = result.replace(/\{\{context\}\}/gi, term.context || "");
 		result = result.replace(/\{\{examples\}\}/gi, term.examples || "");
+
+		// Language name placeholders (e.g., "SourceLanguage" -> "Spanish")
+		result = result.replace(/SourceLanguage/g, this.settings.sourceLanguage);
+    result = result.replace(/TargetLanguage/g, this.settings.targetLanguage);
 
 		// Templater-style placeholders
 		result = result.replace(/<% tp\.file\.title %>/g, term.targetTerm);

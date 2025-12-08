@@ -145,6 +145,9 @@ export interface LearnLanguageSettings {
 	grammarFolder: string;
 	templatesFolder: string;
 
+	// Template files
+	termTemplateFile: string;  // Template file for new terms
+
 	// File paths
 	termTypesFile: string;
 	contextTypesFile: string;
@@ -174,6 +177,7 @@ export const DEFAULT_SETTINGS: LearnLanguageSettings = {
 	verbsFolder: "15. Verbs",
 	grammarFolder: "30. Grammar",
 	templatesFolder: "90. TEMPLATES",
+	termTemplateFile: "90. TEMPLATES/tpl - New Term.md",  // Empty means use default content
 	termTypesFile: "30. Grammar/TermTypes.txt",
 	contextTypesFile: "30. Grammar/ContextTypes.txt",
 	openAIApiKey: "",
