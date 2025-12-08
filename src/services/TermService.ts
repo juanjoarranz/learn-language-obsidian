@@ -74,6 +74,7 @@ export class TermService {
 			content = this.getDefaultTermContent();
 		}
 
+
 		// Replace placeholders and set values
 		content = this.replacePlaceholders(content, term);
 
