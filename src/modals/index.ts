@@ -1,1 +1,2 @@
-export { TermModal, AskAIModal } from "./TermModal";
+export { TermModal } from "./TermModal";
+export { AskAIModal } from "./AskAIModal";
