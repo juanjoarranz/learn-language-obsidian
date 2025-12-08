@@ -304,11 +304,13 @@ export default class LearnLanguagePlugin extends Plugin {
 			}
 		});
 
+    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
+
 		this.termModal.openForEdit(
 			file.path,
 			{
 				target: file.basename,
-				source: fm.Spanish || fm.spanish || "",
+				source: fm[sourceLanguage] || fm[sourceLanguage.toLowerCase()] || "",
 				type: inlineFields.Type || "",
 				context: inlineFields.Context || "",
 				examples: inlineFields.Examples || "",

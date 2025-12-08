@@ -224,7 +224,8 @@ export class TermModal extends Modal {
 	 * Apply AI response to form fields
 	 */
 	private applyAIResponse(response: AITermResponse): void {
-		this.sourceValue = response.spanish;
+    const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
+		this.sourceValue = (response as unknown as Record<string, unknown>)[sourceLanguage.toLowerCase()] as string,
 		this.typeValue = response.type;
 		this.contextValue = response.context;
 		this.examplesValue = response.examples;

@@ -78,11 +78,12 @@ export class AskAIModal extends Modal {
 
     console.log('JAA AI response:', response);
 
+	const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
 		if (response) {
 			// Create the term with AI response
 			const file = await this.plugin.termService.createOrUpdateTerm({
 				targetTerm: this.termValue,
-				sourceTerm: response.spanish,
+				sourceTerm: (response as unknown as Record<string, unknown>)[sourceLanguage.toLowerCase()] as string | undefined,
 				type: response.type,
 				context: response.context,
 				examples: response.examples,

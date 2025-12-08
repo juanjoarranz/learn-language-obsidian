@@ -84,7 +84,7 @@ export class TermService {
 
 			// Update frontmatter
 			await this.app.fileManager.processFrontMatter(newFile, (fm) => {
-				if (term.sourceTerm) fm.Spanish = term.sourceTerm;
+				if (term.sourceTerm) fm[this.settings.sourceLanguage] = term.sourceTerm;
 			});
 
 			return newFile;
@@ -129,9 +129,11 @@ export class TermService {
 	 * Update a term from AI response
 	 */
 	async updateTermFromAI(french: string, aiResponse: AITermResponse): Promise<TFile | null> {
+    const targetLanguage = this.settings.targetLanguage || "French";
+    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
 		return await this.createOrUpdateTerm({
-			targetTerm: french,
-			sourceTerm: aiResponse.spanish,
+			targetTerm: targetLanguage.toLocaleLowerCase(),
+			sourceTerm: (aiResponse as unknown as Record<string, unknown>)[sourceLanguage.toLowerCase()] as string,
 			type: aiResponse.type,
 			context: aiResponse.context,
 			examples: aiResponse.examples,
