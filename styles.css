@@ -2,6 +2,11 @@
    Learn Language Plugin - Styles
    ============================================= */
 
+:root {
+	--ll-table-even-row-bg: #0c1b29;
+  --ll-table-row-bg-hover: #070f16;
+}
+
 /* =============================================
    General View Styles
    ============================================= */
@@ -108,18 +113,15 @@
 
 .ll-table tbody tr:nth-child(even) {
 	background: var(--background-secondary);
-  background: #0c1b29;
+	background: var(--ll-table-even-row-bg);
 }
 
 .ll-table tbody tr:nth-child(even):hover {
-	background: var(--background-secondary-alt);
-  background: #050a0f;
+  background: var(--ll-table-row-bg-hover);
 }
 
 .ll-table tbody tr:nth-child(odd):hover {
-	background: var(--background-secondary-alt);
-  background: #050a0f;
-
+  background: var(--ll-table-row-bg-hover);
 }
 
 /* Table cell specific styles */
