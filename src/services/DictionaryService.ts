@@ -85,10 +85,6 @@ export class DictionaryService {
 		// Sort by name ascending using target language locale
 		const locale = getLocaleCode(this.settings.targetLanguage);
 		entries.sort((a, b) => a.file.name.localeCompare(b.file.name, locale));
-
-    console.log(`JAA Loaded ${entries.length} dictionary entries from ${this.settings.dictionaryFolder}`);
-
-    console.log("JAA Dictionary entries", entries);
 		this.dictionaryCache = entries;
 		this.cacheTimestamp = Date.now();
 

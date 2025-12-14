@@ -275,7 +275,7 @@ export default class LearnLanguagePlugin extends Plugin {
 			leaf = leaves[0];
 		} else {
 			// Create new leaf in right sidebar
-			leaf = workspace.getRightLeaf(false);
+			leaf = workspace.getRightLeaf(true);
 			if (leaf) {
 				await leaf.setViewState({ type: viewType, active: true });
 			}

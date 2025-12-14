@@ -72,19 +72,56 @@ export function DictionaryComponent({
 		resetPage();
 	}, [filters.targetWord, filters.sourceWord, filters.type, filters.context, filters.revision, filters.study]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	// Get unique values for dropdowns
-	const typeOptions = useMemo(
-		() => filterService.getUniqueValues(entries, "type"),
-		[entries, filterService]
-	);
-	const contextOptions = useMemo(
-		() => filterService.getUniqueValues(entries, "context"),
-		[entries, filterService]
-	);
-	const revisionOptions = useMemo(
-		() => filterService.getUniqueValues(entries, "revision"),
-		[entries, filterService]
-	);
+	// Faceted dropdown options:
+	// - Based on the current filtered dataset (by other filters)
+	// - Excluding the dropdown's own filter
+	// - INCLUDING the type-ahead filters (targetWord/sourceWord)
+	const typeOptions = useMemo(() => {
+    //console.log('JAA Computing typeOptions with filters:', filters);
+		const facetEntries = filterService.applyFilters(entries, {
+			...filters,
+			type: "all"
+		});
+		return filterService.getUniqueValues(facetEntries, "type");
+	}, [entries, filterService, filters]);
+
+  //console.log('JAA typeOptions:', typeOptions);
+
+	const contextOptions = useMemo(() => {
+		const facetEntries = filterService.applyFilters(entries, {
+			...filters,
+			context: "all"
+		});
+		return filterService.getUniqueValues(facetEntries, "context");
+	}, [entries, filterService, filters]);
+
+	const revisionOptions = useMemo(() => {
+		const facetEntries = filterService.applyFilters(entries, {
+			...filters,
+			revision: "all"
+		});
+		return filterService.getUniqueValues(facetEntries, "revision");
+	}, [entries, filterService, filters]);
+
+	// If a selected dropdown value is no longer available under the current filters,
+	// reset it to "all" to keep UI and filtering consistent.
+	useEffect(() => {
+		if (filters.type && filters.type !== "all" && !typeOptions.includes(filters.type)) {
+			updateFilter("type", "all");
+		}
+	}, [filters.type, typeOptions, updateFilter]);
+
+	useEffect(() => {
+		if (filters.context && filters.context !== "all" && !contextOptions.includes(filters.context)) {
+			updateFilter("context", "all");
+		}
+	}, [filters.context, contextOptions, updateFilter]);
+
+	useEffect(() => {
+		if (filters.revision && filters.revision !== "all" && !revisionOptions.includes(filters.revision)) {
+			updateFilter("revision", "all");
+		}
+	}, [filters.revision, revisionOptions, updateFilter]);
 
 	// Handlers
 	const handleRefresh = useCallback(async () => {
