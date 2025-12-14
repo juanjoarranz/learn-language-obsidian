@@ -127,10 +127,34 @@ function tagsHtml(input?: string): React.ReactNode {
 }
 
 function NormalRow({ entry, onOpenFile }: NormalRowProps) {
+	const { app } = useLearnLanguage();
+
+	const hasMetadataMenu = Boolean(
+		(app as any)?.plugins?.enabledPlugins?.has?.("metadata-menu") ||
+		(app as any)?.plugins?.plugins?.["metadata-menu"]
+	);
+
+	const openMetadataMenuFieldsModal = useCallback(async (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const commandId = "metadata-menu:open_fields_modal";
+		const command = (app as any)?.commands?.commands?.[commandId];
+		if (!command) return;
+
+		const originalLeaf = app.workspace.activeLeaf;
+		await app.workspace.openLinkText(entry.file.path, "", "tab");
+		await (app as any).commands.executeCommandById(commandId);
+		if (originalLeaf) {
+			app.workspace.setActiveLeaf(originalLeaf, { focus: false });
+		}
+	}, [app, entry.file.path]);
+
 	const handleClick = useCallback((e: React.MouseEvent) => {
 		e.preventDefault();
 		onOpenFile(entry.file.path);
 	}, [entry.file.path, onOpenFile]);
+
 	return (
 		<tr>
 			<td>
@@ -141,6 +165,35 @@ function NormalRow({ entry, onOpenFile }: NormalRowProps) {
 				>
 					{entry.file.basename}
 				</a>
+				{hasMetadataMenu && (
+					<a
+						className="metadata-menu fileclass-icon"
+						onClick={openMetadataMenuFieldsModal}
+						aria-label="Open Metadata Menu fields"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							className="svg-icon lucide-clipboard-list"
+						>
+							<rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+							<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+							<path d="M12 11h4"></path>
+							<path d="M12 16h4"></path>
+							<path d="M8 11h.01"></path>
+							<path d="M8 16h.01"></path>
+						</svg>
+					</a>
+				)}
+
+
 			</td>
 			<td>{entry.sourceWord}</td>
 			<td className="ll-tags">{tagsHtml(entry.type)}</td>
