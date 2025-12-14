@@ -1,4 +1,4 @@
-import React, { StrictMode } from "react";
+import React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { App } from "obsidian";
 import { LearnLanguageContext, LearnLanguageContextValue } from "../context";
@@ -44,11 +44,9 @@ export class ReactMountPoint {
 	 */
 	render(component: React.ReactNode): void {
 		this.root.render(
-			<StrictMode>
-				<LearnLanguageContext.Provider value={this.contextValue}>
-					{component}
-				</LearnLanguageContext.Provider>
-			</StrictMode>
+			<LearnLanguageContext.Provider value={this.contextValue}>
+				{component}
+			</LearnLanguageContext.Provider>
 		);
 	}
 
