@@ -90,13 +90,16 @@
 	padding: 10px 12px;
 	font-weight: 600;
 	border-bottom: 2px solid var(--background-modifier-border);
-	background: var(--background-secondary);
+	/* background: var(--background-secondary); */
+	background: #000000 !important;
 }
 
 .ll-table td {
 	padding: 8px 12px;
-	border-bottom: 1px solid var(--background-modifier-border);
+	/* border-bottom: 1px solid var(--background-modifier-border); */
 	vertical-align: top;
+  font-size: 0.97em !important;
+  /* border: none !important; */
 }
 
 .ll-table tbody tr:hover {
@@ -105,10 +108,18 @@
 
 .ll-table tbody tr:nth-child(even) {
 	background: var(--background-secondary);
+  background: #0c1b29;
 }
 
 .ll-table tbody tr:nth-child(even):hover {
 	background: var(--background-secondary-alt);
+  background: #050a0f;
+}
+
+.ll-table tbody tr:nth-child(odd):hover {
+	background: var(--background-secondary-alt);
+  background: #050a0f;
+
 }
 
 /* Table cell specific styles */
