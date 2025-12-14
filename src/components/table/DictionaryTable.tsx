@@ -70,12 +70,67 @@ interface NormalRowProps {
 	onOpenFile: (path: string) => void;
 }
 
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/\"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
+function examplesHtml(input?: string): string {
+	if (!input) return "";
+
+	// Normalize <br> variants to newlines for easier processing
+	const normalized = input.replace(/<br\s*\/?>/gi, "\n");
+	const escaped = escapeHtml(normalized);
+
+	// Minimal emphasis:
+	// - *text* -> <em>text</em>
+	// - _text_ -> <em>text</em>
+	// Avoid converting underscores inside words like "dès_lors".
+	let emphasized = escaped.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+	emphasized = emphasized.replace(/(^|[^\w])_([^_\n]+)_(?=[^\w]|$)/g, "$1<em>$2</em>");
+
+	// Wrap in a span like the legacy DOM and restore <br>
+	return `<span>${emphasized.replace(/\n/g, "<br>")}</span>`;
+}
+
+function tagsHtml(input?: string): React.ReactNode {
+	if (!input) return null;
+
+	const tokens = input
+		.split(",")
+		.map(t => t.trim())
+		.filter(Boolean);
+
+	return (
+		<>
+			{tokens.map((tagtrim, idx) => (
+				<React.Fragment key={`${tagtrim}-${idx}`}>
+					<span>
+						<a
+							href={tagtrim}
+							className="tag"
+							target="_blank"
+							rel="noopener nofollow"
+						>
+							{tagtrim}
+						</a>
+					</span>
+					{idx < tokens.length - 1 ? ", " : null}
+				</React.Fragment>
+			))}
+		</>
+	);
+}
+
 function NormalRow({ entry, onOpenFile }: NormalRowProps) {
 	const handleClick = useCallback((e: React.MouseEvent) => {
 		e.preventDefault();
 		onOpenFile(entry.file.path);
 	}, [entry.file.path, onOpenFile]);
-
 	return (
 		<tr>
 			<td>
@@ -88,13 +143,13 @@ function NormalRow({ entry, onOpenFile }: NormalRowProps) {
 				</a>
 			</td>
 			<td>{entry.sourceWord}</td>
-			<td className="ll-tags">{entry.type}</td>
-			<td className="ll-tags">{entry.context}</td>
-			<td>{entry.rating || ""}</td>
+			<td className="ll-tags">{tagsHtml(entry.type)}</td>
+			<td className="ll-tags">{tagsHtml(entry.context)}</td>
+			<td>{tagsHtml(entry.rating || "")}</td>
 			<td
 				className="ll-examples"
 				dangerouslySetInnerHTML={{
-					__html: entry.examples?.replace(/<br>/g, "<br>") || ""
+					__html: examplesHtml(entry.examples)
 				}}
 			/>
 		</tr>
@@ -130,7 +185,7 @@ function StudyRow({ entry, showSourceFirst }: StudyRowProps) {
 						<div
 							className="ll-answer-examples"
 							dangerouslySetInnerHTML={{
-								__html: entry.examples.replace(/<br>/g, "<br>")
+								__html: examplesHtml(entry.examples)
 							}}
 						/>
 					)}
