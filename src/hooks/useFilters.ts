@@ -147,32 +147,60 @@ export function useTypeAhead(
 	onChange: (value: string) => void,
 	delay: number = 300
 ) {
-	const [inputValue, setInputValue] = useState(initialValue === "all" ? "" : initialValue);
-	const debouncedValue = useDebounce(inputValue, delay);
-	const isFirstRender = useRef(true);
+	const normalizeExternal = (v: string) => (v === "all" ? "" : v);
+	const [inputValue, setInputValue] = useState(normalizeExternal(initialValue));
 	const onChangeRef = useRef(onChange);
+	const debounceTimerRef = useRef<number | null>(null);
+	const isComposingRef = useRef(false);
+	const isFocusedRef = useRef(false);
 
 	// Keep the ref updated with the latest onChange
 	useEffect(() => {
 		onChangeRef.current = onChange;
 	});
 
+	// If external value changes (e.g. filters set programmatically), sync it
+	// only when the user isn't actively typing/focused to avoid clobbering input.
 	useEffect(() => {
-		if (isFirstRender.current) {
-			isFirstRender.current = false;
-			return;
+		if (isFocusedRef.current || isComposingRef.current) return;
+		const next = normalizeExternal(initialValue);
+		setInputValue(next);
+		if (debounceTimerRef.current) {
+			window.clearTimeout(debounceTimerRef.current);
+			debounceTimerRef.current = null;
 		}
-		onChangeRef.current(debouncedValue || "all");
-	}, [debouncedValue]); // Only depend on debouncedValue, not onChange
+	}, [initialValue]);
+
+	const scheduleNotify = useCallback((nextValue: string) => {
+		if (debounceTimerRef.current) {
+			window.clearTimeout(debounceTimerRef.current);
+		}
+		debounceTimerRef.current = window.setTimeout(() => {
+			debounceTimerRef.current = null;
+			onChangeRef.current(nextValue || "all");
+		}, delay);
+	}, [delay]);
+
+	const flushNotify = useCallback((currentValue: string) => {
+		if (debounceTimerRef.current) {
+			window.clearTimeout(debounceTimerRef.current);
+			debounceTimerRef.current = null;
+		}
+		onChangeRef.current(currentValue || "all");
+	}, []);
 
 	const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-		setInputValue(e.target.value);
-	}, []);
+		const next = e.target.value;
+		setInputValue(next);
+		if (!isComposingRef.current) {
+			scheduleNotify(next);
+		}
+	}, [scheduleNotify]);
 
 	const handleClear = useCallback(() => {
 		setInputValue("");
-		onChangeRef.current("all");
-	}, []);
+		flushNotify("");
+	}, [flushNotify]);
 
 	const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Escape") {
@@ -180,12 +208,43 @@ export function useTypeAhead(
 		}
 	}, [handleClear]);
 
+	const handleFocus = useCallback(() => {
+		isFocusedRef.current = true;
+	}, []);
+
+	const handleBlur = useCallback(() => {
+		isFocusedRef.current = false;
+		// Commit any pending value when leaving the field.
+		if (!isComposingRef.current) {
+			flushNotify(inputValue);
+		}
+	}, [flushNotify, inputValue]);
+
+	const handleCompositionStart = useCallback(() => {
+		isComposingRef.current = true;
+		if (debounceTimerRef.current) {
+			window.clearTimeout(debounceTimerRef.current);
+			debounceTimerRef.current = null;
+		}
+	}, []);
+
+	const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+		isComposingRef.current = false;
+		const next = (e.target as HTMLInputElement).value;
+		setInputValue(next);
+		scheduleNotify(next);
+	}, [scheduleNotify]);
+
 	return {
 		inputValue,
 		setInputValue,
 		handleChange,
 		handleClear,
 		handleKeyDown,
+		handleFocus,
+		handleBlur,
+		handleCompositionStart,
+		handleCompositionEnd,
 		isActive: inputValue !== ""
 	};
 }

@@ -94,7 +94,12 @@ export function DictionaryComponent({
 			...filters,
 			type: "all"
 		});
-		return filterService.getUniqueValues(facetEntries, "type");
+		const opts = filterService.getUniqueValues(facetEntries, "type");
+		const selected = filters.type;
+		if (selected && selected !== "all" && !opts.includes(selected)) {
+			return ["all", selected, ...opts.filter(o => o !== "all")];
+		}
+		return opts;
 	}, [entries, filterService, filters]);
 
   //console.log('JAA typeOptions:', typeOptions);
@@ -104,7 +109,12 @@ export function DictionaryComponent({
 			...filters,
 			context: "all"
 		});
-		return filterService.getUniqueValues(facetEntries, "context");
+		const opts = filterService.getUniqueValues(facetEntries, "context");
+		const selected = filters.context;
+		if (selected && selected !== "all" && !opts.includes(selected)) {
+			return ["all", selected, ...opts.filter(o => o !== "all")];
+		}
+		return opts;
 	}, [entries, filterService, filters]);
 
 	const revisionOptions = useMemo(() => {
@@ -112,28 +122,13 @@ export function DictionaryComponent({
 			...filters,
 			revision: "all"
 		});
-		return filterService.getUniqueValues(facetEntries, "revision");
+		const opts = filterService.getUniqueValues(facetEntries, "revision");
+		const selected = filters.revision;
+		if (selected && selected !== "all" && !opts.includes(selected)) {
+			return ["all", selected, ...opts.filter(o => o !== "all")];
+		}
+		return opts;
 	}, [entries, filterService, filters]);
-
-	// If a selected dropdown value is no longer available under the current filters,
-	// reset it to "all" to keep UI and filtering consistent.
-	useEffect(() => {
-		if (filters.type && filters.type !== "all" && !typeOptions.includes(filters.type)) {
-			updateFilter("type", "all");
-		}
-	}, [filters.type, typeOptions, updateFilter]);
-
-	useEffect(() => {
-		if (filters.context && filters.context !== "all" && !contextOptions.includes(filters.context)) {
-			updateFilter("context", "all");
-		}
-	}, [filters.context, contextOptions, updateFilter]);
-
-	useEffect(() => {
-		if (filters.revision && filters.revision !== "all" && !revisionOptions.includes(filters.revision)) {
-			updateFilter("revision", "all");
-		}
-	}, [filters.revision, revisionOptions, updateFilter]);
 
 	// Handlers
 	const handleRefresh = useCallback(async () => {

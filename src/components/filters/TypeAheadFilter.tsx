@@ -22,6 +22,10 @@ export function TypeAheadFilter({
 		handleChange,
 		handleClear,
 		handleKeyDown,
+		handleFocus,
+		handleBlur,
+		handleCompositionStart,
+		handleCompositionEnd,
 		isActive
 	} = useTypeAhead(value, onChange);
 
@@ -35,6 +39,10 @@ export function TypeAheadFilter({
 				value={inputValue}
 				onChange={handleChange}
 				onKeyDown={handleKeyDown}
+				onFocus={handleFocus}
+				onBlur={handleBlur}
+				onCompositionStart={handleCompositionStart}
+				onCompositionEnd={handleCompositionEnd}
 			/>
 			{isActive && (
 				<button
