@@ -31,6 +31,17 @@ export function StudyToggle({
 				<option value="yes">{targetLanguage} → {sourceLanguage}</option>
 				<option value="source">{sourceLanguage} → {targetLanguage}</option>
 			</select>
+			{isActive && (
+				<button
+					type="button"
+					className="ll-filter-clear"
+					onClick={() => onChange("no")}
+					aria-label="Clear Study"
+					title="Clear Study"
+				>
+					✕
+				</button>
+			)}
 		</div>
 	);
 }

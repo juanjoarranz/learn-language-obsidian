@@ -20,6 +20,7 @@ export function TypeAheadFilter({
 	const {
 		inputValue,
 		handleChange,
+		handleClear,
 		handleKeyDown,
 		isActive
 	} = useTypeAhead(value, onChange);
@@ -35,6 +36,17 @@ export function TypeAheadFilter({
 				onChange={handleChange}
 				onKeyDown={handleKeyDown}
 			/>
+			{isActive && (
+				<button
+					type="button"
+					className="ll-filter-clear"
+					onClick={handleClear}
+					aria-label={`Clear ${label}`}
+					title={`Clear ${label}`}
+				>
+					✕
+				</button>
+			)}
 		</div>
 	);
 }

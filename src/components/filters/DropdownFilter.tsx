@@ -33,6 +33,17 @@ export function DropdownFilter({
 					</option>
 				))}
 			</select>
+			{isActive && (
+				<button
+					type="button"
+					className="ll-filter-clear"
+					onClick={() => onChange("all")}
+					aria-label={`Clear ${label}`}
+					title={`Clear ${label}`}
+				>
+					✕
+				</button>
+			)}
 		</div>
 	);
 }

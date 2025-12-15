@@ -61,12 +61,33 @@
 .ll-filter-label {
 	font-size: 12px;
 	font-weight: 600;
-	text-transform: uppercase;
+	/* text-transform: uppercase; */
 	letter-spacing: 0.5px;
 }
 
 .ll-filter-item .dropdown {
 	min-width: 100px;
+}
+
+.ll-filter-clear {
+	appearance: none;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	padding: 0 4px;
+	line-height: 1;
+	font-size: 14px;
+	opacity: 0.85;
+}
+
+.ll-filter-clear:hover {
+	opacity: 1;
+}
+
+.ll-filter-clear:focus-visible {
+	outline: 2px solid var(--background-modifier-border);
+	outline-offset: 2px;
 }
 
 /* =============================================

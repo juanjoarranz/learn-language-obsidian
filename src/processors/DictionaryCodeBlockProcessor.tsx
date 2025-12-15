@@ -243,7 +243,7 @@ export function registerDictionaryCodeBlockProcessor(
 			}
 
 			const isOnlyTypeAheadChange = changedKeys.length > 0 && changedKeys.every(k => k === "targetWord" || k === "sourceWord");
-			const debounceMs = isOnlyTypeAheadChange ? 30_000 : 400;
+			const debounceMs = isOnlyTypeAheadChange ? 45_000 : 800;
 
 			const snapshot = JSON.stringify(normalizedNext);
 			if (snapshot === lastWritten) return;
