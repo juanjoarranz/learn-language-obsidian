@@ -167,6 +167,20 @@ export class DictionaryService {
 		const type = this.getFieldValue(inlineFields.type, inlineFields.Type, fm.type, fm.Type);
 		const context = this.getFieldValue(inlineFields.context, inlineFields.Context, fm.context, fm.Context);
 
+		// Revision can be stored either as frontmatter (Revision: 1) or as an inline field (Revision:: 1).
+		// Many notes use the inline field form, so we must read both.
+		const revisionCandidate = [
+			inlineFields.Revision,
+			(inlineFields as Record<string, string>).revision,
+			fm.Revision,
+			(fm as Record<string, unknown>).revision
+		].find(v => v !== undefined && v !== null && String(v).trim() !== "");
+		const revision = revisionCandidate
+			? (String(revisionCandidate).trim().toLowerCase() === "new"
+				? "new"
+				: String(revisionCandidate).trim())
+			: "new";
+
 		// Get source language value using configured language name
 		const sourceLanguage = this.settings.sourceLanguage;
 		const sourceValue = this.getFieldValue(
@@ -186,7 +200,7 @@ export class DictionaryService {
 			sourceWord: sourceValue.toLowerCase(),
 			type: this.normalizeArrayField(type),
 			context: this.normalizeArrayField(context),
-			revision: fm.Revision !== undefined ? fm.Revision.toString() : "new",
+			revision,
 			rating: inlineFields.Rating || fm.Rating || "",
 			examples: inlineFields.Examples || fm.Examples || "",
 			synonyms: inlineFields.Synonyms || fm.Synonyms || "",
