@@ -58,6 +58,11 @@
 	background: var(--background-primary);
 }
 
+.ll-filter-item.ll-filter-active .ll-filter-input {
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
 .ll-filter-label {
 	font-size: 12px;
 	font-weight: 600;
