@@ -68,7 +68,6 @@ export class FilterService {
 
 		if (filters.type && filters.type !== "all") {
 			result = result.filter(e => e.type.toLowerCase().includes(filters.type!.toLowerCase()));
-      console.log('JAA Filtering by type:', filters.type, 'Remaining entries:', result);
 		}
 
 		if (filters.context && filters.context !== "all") {

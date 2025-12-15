@@ -20,6 +20,8 @@ export interface DictionaryComponentProps {
 	initialFilters?: Partial<FilterState>;
 	/** Callback when refresh is requested */
 	onRefresh?: () => Promise<void>;
+	/** Callback when filters change */
+	onFiltersChange?: (filters: Partial<FilterState>) => void;
 }
 
 /**
@@ -32,11 +34,13 @@ export function DictionaryComponent({
 	showPagination = true,
 	pageSize = 100,
 	initialFilters = {},
-	onRefresh
+	onRefresh,
+	onFiltersChange
 }: DictionaryComponentProps) {
 	const { settings, filterService } = useLearnLanguage();
 	const targetLang = settings.targetLanguage;
 	const sourceLang = settings.sourceLanguage;
+	const isFirstFiltersEmit = React.useRef(true);
 
 	// State management with hooks
 	const { filters, updateFilter } = useFilters(initialFilters);
@@ -72,12 +76,20 @@ export function DictionaryComponent({
 		resetPage();
 	}, [filters.targetWord, filters.sourceWord, filters.type, filters.context, filters.revision, filters.study]); // eslint-disable-line react-hooks/exhaustive-deps
 
+	// Notify external listeners (e.g. code block processor persistence)
+	useEffect(() => {
+		if (isFirstFiltersEmit.current) {
+			isFirstFiltersEmit.current = false;
+			return;
+		}
+		onFiltersChange?.(filters);
+	}, [filters, onFiltersChange]);
+
 	// Faceted dropdown options:
 	// - Based on the current filtered dataset (by other filters)
 	// - Excluding the dropdown's own filter
 	// - INCLUDING the type-ahead filters (targetWord/sourceWord)
 	const typeOptions = useMemo(() => {
-    //console.log('JAA Computing typeOptions with filters:', filters);
 		const facetEntries = filterService.applyFilters(entries, {
 			...filters,
 			type: "all"
