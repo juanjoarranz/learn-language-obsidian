@@ -34,16 +34,18 @@ export function DictionaryTable({
 
 	return (
 		<table className="ll-table">
-			<thead>
-				<tr>
-					<th>{targetLang}</th>
-					<th>{sourceLang}</th>
-					<th>Type</th>
-					<th>Context</th>
-					<th>Rating</th>
-					<th>Examples</th>
-				</tr>
-			</thead>
+			{!isStudying && (
+				<thead>
+					<tr>
+						<th>{targetLang}</th>
+						<th>{sourceLang}</th>
+						<th>Type</th>
+						<th>Context</th>
+						<th>Rating</th>
+						<th>Examples</th>
+					</tr>
+				</thead>
+			)}
 			<tbody>
 				{entries.map((entry) => (
 					isStudying ? (
