@@ -219,7 +219,11 @@ interface StudyRowProps {
 function StudyRow({ entry, showSourceFirst }: StudyRowProps) {
 	const [isExpanded, setIsExpanded] = React.useState(false);
 
-	const questionText = showSourceFirst ? entry.sourceWord : entry.file.basename;
+  const questionLink = (
+    <a className="internal-link" href={entry.file.path}>
+      {showSourceFirst ? entry.sourceWord : entry.file.basename}
+    </a>);
+
 	const answerText = showSourceFirst ? entry.file.basename : entry.sourceWord;
 
 	return (
@@ -229,7 +233,7 @@ function StudyRow({ entry, showSourceFirst }: StudyRowProps) {
 					className="ll-study-question"
 					onClick={() => setIsExpanded(!isExpanded)}
 				>
-					<h4 className="ll-collapsible">{questionText}</h4>
+					<h4 className="ll-collapsible">{questionLink}</h4>
 				</div>
 				<div className={`ll-study-answer ${isExpanded ? "" : "ll-hidden"}`}>
 					<span className="ll-answer-text">{answerText}</span>
