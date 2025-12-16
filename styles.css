@@ -101,6 +101,9 @@
 
 .ll-table-container {
 	overflow-x: auto;
+	overflow-y: auto;
+	max-height: 70vh;
+	position: relative;
 }
 
 .ll-table {
@@ -111,8 +114,8 @@
 
 .ll-table thead {
 	position: sticky;
-	top: 0;
-	background: var(--background-primary);
+	top: -1px;
+	background: #000000;
 	z-index: 10;
 }
 
@@ -121,8 +124,8 @@
 	padding: 10px 12px;
 	font-weight: 600;
 	border-bottom: 2px solid var(--background-modifier-border);
-	/* background: var(--background-secondary); */
 	background: #000000 !important;
+	box-shadow: 0 -3px 0 0 #000000;
 }
 
 .ll-table td {
