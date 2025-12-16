@@ -146,7 +146,8 @@ export function registerDictionaryCodeBlockProcessor(
 	app: App,
 	settings: LearnLanguageSettings,
 	dictionaryService: DictionaryService,
-	filterService: FilterService
+	filterService: FilterService,
+	onAskAIForTerm?: () => void
 ): (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => Promise<void> {
 
 	return async (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> => {
@@ -282,6 +283,7 @@ export function registerDictionaryCodeBlockProcessor(
 					initialFilters={initialFilters}
 					onRefresh={handleRefresh}
 					onFiltersChange={persistFilters}
+					onAskAIForTerm={onAskAIForTerm}
 				/>
 			);
 		};

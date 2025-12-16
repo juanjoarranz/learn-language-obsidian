@@ -73,6 +73,7 @@ export class DictionaryView extends ItemView {
 				showPagination={true}
 				pageSize={100}
 				onRefresh={() => this.refresh()}
+				onAskAIForTerm={() => this.plugin.askAIModal.open()}
 			/>
 		);
 	}
@@ -109,6 +110,7 @@ export class DictionaryView extends ItemView {
 				pageSize={100}
 				initialFilters={filters}
 				onRefresh={() => this.refresh()}
+				onAskAIForTerm={() => this.plugin.askAIModal.open()}
 			/>
 		);
 	}

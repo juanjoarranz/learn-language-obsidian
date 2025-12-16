@@ -22,6 +22,8 @@ export interface DictionaryComponentProps {
 	onRefresh?: () => Promise<void>;
 	/** Callback when filters change */
 	onFiltersChange?: (filters: Partial<FilterState>) => void;
+	/** Callback to open Ask AI for Term modal */
+	onAskAIForTerm?: () => void;
 }
 
 /**
@@ -35,7 +37,8 @@ export function DictionaryComponent({
 	pageSize = 100,
 	initialFilters = {},
 	onRefresh,
-	onFiltersChange
+	onFiltersChange,
+	onAskAIForTerm
 }: DictionaryComponentProps) {
 	const { settings, filterService } = useLearnLanguage();
 	const targetLang = settings.targetLanguage;
@@ -196,6 +199,15 @@ export function DictionaryComponent({
 							aria-label="Refresh"
 						>
 							🔄 Refresh
+						</button>
+					)}
+					{onAskAIForTerm && (
+						<button
+							className="mod-cta"
+							onClick={onAskAIForTerm}
+							aria-label="Ask AI for Term"
+						>
+							🤖 Ask AI for Term
 						</button>
 					)}
 				</div>
