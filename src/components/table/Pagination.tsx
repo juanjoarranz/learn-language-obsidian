@@ -12,6 +12,7 @@ interface PaginationProps {
 	onPageSizeChange: (size: number) => void;
 	entityName?: string;
   showPaginationInfo?: boolean;
+  showBorderTop?: boolean;
 }
 
 /**
@@ -27,14 +28,15 @@ export function Pagination({
 	onPrev,
 	onPageSizeChange,
 	entityName = "entries",
-  showPaginationInfo = true
+  showPaginationInfo = true,
+  showBorderTop = true
 }: PaginationProps) {
 	const { pageStart, pageSize, outputCount } = pagination;
 	const showStart = pageStart + 1;
 	const showEnd = Math.min(pageStart + pageSize, outputCount);
 
 	return (
-		<div className="ll-pagination">
+		<div className={"ll-pagination" + (showBorderTop ? "" : " ll-pagination-no-border-top")}>
 			{showPaginationInfo && <span className="ll-pagination-info">
 				Showing {showStart}-{showEnd} of {outputCount} {entityName} (Page {currentPage}/{totalPages})
 			</span>}

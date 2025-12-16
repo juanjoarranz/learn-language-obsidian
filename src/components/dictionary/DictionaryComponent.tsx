@@ -224,6 +224,7 @@ export function DictionaryComponent({
 					onNext={nextPage}
 					onPrev={prevPage}
 					onPageSizeChange={handlePageSizeChange}
+          showBorderTop={false}
 				/>
 			)}
 

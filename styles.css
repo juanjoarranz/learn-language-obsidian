@@ -279,6 +279,12 @@
 	gap: 12px;
 }
 
+.ll-pagination-no-border-top {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
 .ll-pagination-info {
 	font-size: 13px;
 	color: var(--text-muted);
