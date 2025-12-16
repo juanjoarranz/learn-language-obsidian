@@ -11,6 +11,7 @@ interface PaginationProps {
 	onPrev: () => void;
 	onPageSizeChange: (size: number) => void;
 	entityName?: string;
+  showPaginationInfo?: boolean;
 }
 
 /**
@@ -25,7 +26,8 @@ export function Pagination({
 	onNext,
 	onPrev,
 	onPageSizeChange,
-	entityName = "entries"
+	entityName = "entries",
+  showPaginationInfo = true
 }: PaginationProps) {
 	const { pageStart, pageSize, outputCount } = pagination;
 	const showStart = pageStart + 1;
@@ -33,9 +35,9 @@ export function Pagination({
 
 	return (
 		<div className="ll-pagination">
-			<span className="ll-pagination-info">
+			{showPaginationInfo && <span className="ll-pagination-info">
 				Showing {showStart}-{showEnd} of {outputCount} {entityName} (Page {currentPage}/{totalPages})
-			</span>
+			</span>}
 			<div className="ll-pagination-buttons">
 				{hasPrev && (
 					<button className="mod-cta" onClick={onPrev}>

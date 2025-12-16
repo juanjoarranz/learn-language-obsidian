@@ -102,7 +102,7 @@
 .ll-table-container {
 	overflow-x: auto;
 	overflow-y: auto;
-	max-height: 70vh;
+	max-height: 80vh;
 	position: relative;
 }
 
@@ -245,8 +245,9 @@
 	margin-top: 12px;
 	padding-top: 12px;
 	border-top: 1px solid var(--background-modifier-border);
-	font-style: italic;
+	font-style: normal;
 	color: var(--text-muted);
+	color: #a7a7a7;
 }
 
 /* Collapsible indicator */
@@ -281,12 +282,14 @@
 .ll-pagination-info {
 	font-size: 13px;
 	color: var(--text-muted);
+	color: #d4d4d4;
 }
 
 .ll-pagination-buttons {
 	display: flex;
 	gap: 8px;
 	align-items: center;
+	margin-left: auto;
 }
 
 .ll-page-size {

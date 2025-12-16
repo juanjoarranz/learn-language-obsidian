@@ -247,6 +247,7 @@ export function DictionaryComponent({
 					onNext={nextPage}
 					onPrev={prevPage}
 					onPageSizeChange={handlePageSizeChange}
+          showPaginationInfo={false}
 				/>
 			)}
 		</div>
