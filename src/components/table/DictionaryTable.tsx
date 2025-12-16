@@ -238,7 +238,7 @@ function StudyRow({ entry, showSourceFirst }: StudyRowProps) {
 				<div className={`ll-study-answer ${isExpanded ? "" : "ll-hidden"}`}>
 					<span className="ll-answer-text">{answerText}</span>
 					{entry.type && (
-						<span className="ll-answer-type"> ({entry.type})</span>
+						<span className="ll-answer-type"> (type: {entry.type} | context: {entry.context})</span>
 					)}
 					{entry.examples && (
 						<div
