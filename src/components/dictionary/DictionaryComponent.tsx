@@ -69,6 +69,8 @@ export function DictionaryComponent({
 		showPagination
 	);
 
+  console.log('JAA DictionaryComponent render:', { entries, filters, filteredEntries, paginatedEntries });
+
 	// Update output count when filtered entries change
 	useEffect(() => {
 		setOutputCount(filteredEntries.length);

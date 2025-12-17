@@ -1,5 +1,5 @@
 import React from "react";
-import { MarkdownPostProcessorContext, MarkdownRenderChild, App, TFile } from "obsidian";
+import { MarkdownPostProcessorContext, MarkdownRenderChild, App, TFile, CachedMetadata, LinkCache } from "obsidian";
 import { LearnLanguageSettings, FilterState, DictionaryEntry } from "../types";
 import { DictionaryService, FilterService, TermService } from "../services";
 import { DictionaryComponent } from "../components/dictionary";
@@ -13,6 +13,7 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 	pageSize?: number;
 	showStudy?: boolean;
 	showPagination?: boolean;
+	outlinksOnly?: boolean;
 } & { explicitFilterKeys: Set<keyof FilterState> } {
 	const options: Record<string, string> = {};
 	const explicitFilterKeys = new Set<keyof FilterState>();
@@ -46,10 +47,82 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 		pageSize: options.pagesize ? parseInt(options.pagesize) : 50,
 		showStudy: options.showstudy !== "false",
 		showPagination: options.showpagination !== "false",
+		outlinksOnly: options.outlinksonly === "true" || options.lessonmode === "true",
 		explicitFilterKeys
 	};
 }
 
+/**
+ * Get outlinks from the current document that point to dictionary entries.
+ * Similar to displayDictionaryInLesson logic from the legacy solution.
+ *
+ * @param app - The Obsidian App instance
+ * @param sourcePath - Path of the current document
+ * @param dictionaryFolder - The folder containing dictionary entries (e.g., "10. Dictionary")
+ * @returns Set of file paths that are linked from the current document
+ */
+function getOutlinksToDict(
+	app: App,
+	sourcePath: string,
+	dictionaryFolder: string
+): Set<string> {
+	const outlinks = new Set<string>();
+
+	const file = app.vault.getAbstractFileByPath(sourcePath);
+	if (!(file instanceof TFile)) return outlinks;
+
+	const cache = app.metadataCache.getFileCache(file);
+	if (!cache) return outlinks;
+
+	// Collect all links from the document (both inline links and embeds)
+	const allLinks: LinkCache[] = [
+		...(cache.links || []),
+		...(cache.embeds || [])
+	];
+
+	for (const link of allLinks) {
+		// Resolve the link to get the actual file path
+		const linkedFile = app.metadataCache.getFirstLinkpathDest(link.link, sourcePath);
+		if (!linkedFile) continue;
+
+		// Check if the linked file is in the dictionary folder and is not an image
+		const isInDictFolder = linkedFile.path.includes(dictionaryFolder);
+		const isImage = /\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(linkedFile.path);
+
+		if (isInDictFolder && !isImage) {
+			outlinks.add(linkedFile.path);
+		}
+	}
+
+	return outlinks;
+}
+
+/**
+ * Filter dictionary entries to only those referenced in the current document.
+ *
+ * @param entries - All dictionary entries
+ * @param outlinks - Set of file paths linked from the current document
+ * @returns Filtered entries that are referenced in the document
+ */
+function filterEntriesByOutlinks(
+	entries: DictionaryEntry[],
+	outlinks: Set<string>
+): DictionaryEntry[] {
+	if (outlinks.size === 0) return [];
+	return entries.filter(entry => outlinks.has(entry.file.path));
+}
+
+/**
+ * Inserts or updates a key-value pair in an array of strings.
+ *
+ * Searches for a line matching the key pattern (case-insensitive) and updates it with the new value.
+ * If no matching line is found, appends a new key-value line to the end of the array.
+ *
+ * @param lines - The array of strings to search and modify.
+ * @param key - The key to search for or insert.
+ * @param value - The value to associate with the key.
+ * @returns A new array with the key-value pair inserted or updated.
+ */
 function upsertKeyValueLine(
 	lines: string[],
 	key: string,
@@ -143,7 +216,23 @@ const reactRoots = new Map<HTMLElement, ReactMountPoint>();
  * pageSize: 25
  * showStudy: true
  * showPagination: true
+ * outlinksOnly: true
  * ```
+ *
+ * Options:
+ * - targetWord/french: Filter by target word (default: "all")
+ * - sourceWord/spanish: Filter by source word (default: "all")
+ * - type: Filter by type (default: "all")
+ * - context: Filter by context (default: "all")
+ * - revision: Filter by revision status (default: "all")
+ * - rating: Filter by rating (default: "all")
+ * - study: Study mode - "yes", "no", or "source" (default: "no")
+ * - limit: Maximum number of entries to display
+ * - pageSize: Number of entries per page (default: 50)
+ * - showStudy: Show study mode toggle (default: true)
+ * - showPagination: Show pagination controls (default: true)
+ * - outlinksOnly/lessonMode: Only show dictionary entries that are referenced
+ *   (linked) in the current document. Useful for lesson notes. (default: false)
  */
 export function registerDictionaryCodeBlockProcessor(
 	app: App,
@@ -172,10 +261,23 @@ export function registerDictionaryCodeBlockProcessor(
 		// Create container with embedded styling
 		const container = el.createDiv({ cls: "ll-embedded-dictionary" });
 
+		// Get the source path for outlinks filtering
+		const sourcePath = ctx.sourcePath;
+
+		// Get outlinks if outlinksOnly mode is enabled
+		const outlinksToDict = options.outlinksOnly
+			? getOutlinksToDict(app, sourcePath, settings.dictionaryFolder)
+			: null;
+
 		// Get dictionary entries
 		let entries: DictionaryEntry[] = [];
 		try {
 			entries = await dictionaryService.getDictionary();
+
+			// Filter by outlinks if outlinksOnly mode is enabled
+			if (outlinksToDict) {
+				entries = filterEntriesByOutlinks(entries, outlinksToDict);
+			}
 		} catch (error) {
 			container.createDiv({
 				text: `Error loading dictionary: ${error}`,
@@ -207,6 +309,13 @@ export function registerDictionaryCodeBlockProcessor(
 		const handleRefresh = async () => {
 			dictionaryService.invalidateCache();
 			let refreshedEntries = await dictionaryService.getDictionary();
+
+			// Re-check outlinks on refresh (document may have changed)
+			if (options.outlinksOnly) {
+				const refreshedOutlinks = getOutlinksToDict(app, sourcePath, settings.dictionaryFolder);
+				refreshedEntries = filterEntriesByOutlinks(refreshedEntries, refreshedOutlinks);
+			}
+
 			if (limit) {
 				refreshedEntries = refreshedEntries.slice(0, limit);
 			}
@@ -215,7 +324,6 @@ export function registerDictionaryCodeBlockProcessor(
 		};
 
 		// Persist handler (debounced) - writes back into the markdown code block itself
-		const sourcePath = (ctx as any)?.sourcePath as string | undefined;
 		const sectionInfo = (ctx as any)?.getSectionInfo?.(el) as { lineStart?: number; lineEnd?: number } | undefined;
 		let persistTimer: number | null = null;
 		let lastScheduled: string | null = null;
