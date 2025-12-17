@@ -31,6 +31,7 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 	if (options.type) explicitFilterKeys.add("type");
 	if (options.context) explicitFilterKeys.add("context");
 	if (options.revision) explicitFilterKeys.add("revision");
+	if (options.rating) explicitFilterKeys.add("rating");
 	if (options.study) explicitFilterKeys.add("study");
 
 	return {
@@ -39,6 +40,7 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 		type: options.type || "all",
 		context: options.context || "all",
 		revision: options.revision || "all",
+		rating: options.rating || "all",
 		study: (options.study as "yes" | "no" | "source") || "no",
 		limit: options.limit ? parseInt(options.limit) : undefined,
 		pageSize: options.pagesize ? parseInt(options.pagesize) : 50,
@@ -116,6 +118,7 @@ async function persistFiltersIntoCodeBlock(
 	inner = upsertKeyValueLine(inner, "type", filters.type ?? "all");
 	inner = upsertKeyValueLine(inner, "context", filters.context ?? "all");
 	inner = upsertKeyValueLine(inner, "revision", filters.revision ?? "all");
+	inner = upsertKeyValueLine(inner, "rating", filters.rating ?? "all");
 	inner = upsertKeyValueLine(inner, "study", (filters.study as any) ?? "no");
 
 	const nextLines = [...lines.slice(0, chosen.start + 1), ...inner, ...lines.slice(chosen.end)];
@@ -161,6 +164,7 @@ export function registerDictionaryCodeBlockProcessor(
 			type: options.type,
 			context: options.context,
 			revision: options.revision,
+			rating: options.rating,
 			study: options.study
 		};
 
@@ -224,6 +228,7 @@ export function registerDictionaryCodeBlockProcessor(
 				type: normalizeFilterValue(next.type, "all"),
 				context: normalizeFilterValue(next.context, "all"),
 				revision: normalizeFilterValue(next.revision, "all"),
+				rating: normalizeFilterValue(next.rating, "all"),
 				study: normalizeFilterValue(next.study as any, "no")
 			} as const;
 
@@ -237,6 +242,7 @@ export function registerDictionaryCodeBlockProcessor(
 				if (normalizeFilterValue(previous.type, "all") !== normalizedNext.type) changedKeys.push("type");
 				if (normalizeFilterValue(previous.context, "all") !== normalizedNext.context) changedKeys.push("context");
 				if (normalizeFilterValue(previous.revision, "all") !== normalizedNext.revision) changedKeys.push("revision");
+				if (normalizeFilterValue(previous.rating, "all") !== normalizedNext.rating) changedKeys.push("rating");
 				if (normalizeFilterValue(previous.study as any, "no") !== normalizedNext.study) changedKeys.push("study");
 			} else {
 				// First emission after mount guard: treat as a non-typeahead change (persist quickly)

@@ -77,7 +77,7 @@ export function DictionaryComponent({
 	// Reset page when filters change
 	useEffect(() => {
 		resetPage();
-	}, [filters.targetWord, filters.sourceWord, filters.type, filters.context, filters.revision, filters.study]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [filters.targetWord, filters.sourceWord, filters.type, filters.context, filters.revision, filters.rating, filters.study]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Notify external listeners (e.g. code block processor persistence)
 	useEffect(() => {
@@ -127,6 +127,19 @@ export function DictionaryComponent({
 		});
 		const opts = filterService.getUniqueValues(facetEntries, "revision");
 		const selected = filters.revision;
+		if (selected && selected !== "all" && !opts.includes(selected)) {
+			return ["all", selected, ...opts.filter(o => o !== "all")];
+		}
+		return opts;
+	}, [entries, filterService, filters]);
+
+	const ratingOptions = useMemo(() => {
+		const facetEntries = filterService.applyFilters(entries, {
+			...filters,
+			rating: "all"
+		});
+		const opts = filterService.getUniqueValues(facetEntries, "rating");
+		const selected = filters.rating;
 		if (selected && selected !== "all" && !opts.includes(selected)) {
 			return ["all", selected, ...opts.filter(o => o !== "all")];
 		}
@@ -183,6 +196,12 @@ export function DictionaryComponent({
 						value={filters.revision || "all"}
 						options={revisionOptions}
 						onChange={(value) => updateFilter("revision", value)}
+					/>
+					<DropdownFilter
+						label="Rating"
+						value={filters.rating || "all"}
+						options={ratingOptions}
+						onChange={(value) => updateFilter("rating", value)}
 					/>
 					{showStudyMode && (
 						<StudyToggle

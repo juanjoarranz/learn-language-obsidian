@@ -71,6 +71,7 @@ export interface FilterState {
 	type: string;
 	context: string;
 	revision: string;
+	rating: string;
 	study: StudyMode;
 	group?: string;
 	irregular?: string;

@@ -78,6 +78,10 @@ export class FilterService {
 			result = result.filter(e => e.revision === filters.revision);
 		}
 
+		if (filters.rating && filters.rating !== "all") {
+			result = result.filter(e => e.rating === filters.rating);
+		}
+
 		// Verb-specific filters (cast to access additional properties)
 		const verbFilters = filters as Partial<FilterState> & { group?: string; irregular?: string };
 		if (verbFilters.group && verbFilters.group !== "all") {
