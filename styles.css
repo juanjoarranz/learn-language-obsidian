@@ -205,6 +205,13 @@
 	padding: 8px 0;
 }
 
+.ll-study-question-content {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
 .ll-study-question h4 {
 	margin: 0;
 	padding: 8px 12px;
@@ -212,10 +219,28 @@
 	border-radius: 6px;
 	cursor: pointer;
 	transition: background 0.2s ease;
+	flex: 1;
 }
 
 .ll-study-question h4:hover {
 	background: var(--background-modifier-hover);
+}
+
+/* Study mode dropdowns */
+.ll-study-dropdowns {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.ll-study-dropdown {
+	font-size: 12px;
+	min-width: 60px;
+}
+
+.ll-rating-dropdown {
+	min-width: 100px;
 }
 
 .ll-study-answer {

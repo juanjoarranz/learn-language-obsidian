@@ -1,7 +1,7 @@
 import React from "react";
 import { MarkdownPostProcessorContext, MarkdownRenderChild, App, TFile } from "obsidian";
 import { LearnLanguageSettings, FilterState, DictionaryEntry } from "../types";
-import { DictionaryService, FilterService } from "../services";
+import { DictionaryService, FilterService, TermService } from "../services";
 import { DictionaryComponent } from "../components/dictionary";
 import { createReactRoot, ReactMountPoint } from "../utils";
 
@@ -150,6 +150,7 @@ export function registerDictionaryCodeBlockProcessor(
 	settings: LearnLanguageSettings,
 	dictionaryService: DictionaryService,
 	filterService: FilterService,
+	termService: TermService,
 	onAskAIForTerm?: () => void
 ): (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => Promise<void> {
 
@@ -195,7 +196,8 @@ export function registerDictionaryCodeBlockProcessor(
 			app,
 			settings,
 			filterService,
-			dictionaryService
+			dictionaryService,
+			termService
 		);
 
 		// Store for cleanup

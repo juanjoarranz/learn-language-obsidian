@@ -229,6 +229,14 @@ export class TermService {
 	}
 
 	/**
+	 * Update a single inline field in a file (public API)
+	 * Used by UI components to update individual fields like Revision or Rating
+	 */
+	async updateField(filePath: string, fieldName: string, fieldValue: string): Promise<void> {
+		await this.updateInlineFieldValue(filePath, fieldName, fieldValue);
+	}
+
+	/**
 	 * Update inline field in file
 	 * Based on legacy updateInlineFieldValue()
 	 */

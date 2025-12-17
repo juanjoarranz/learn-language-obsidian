@@ -45,7 +45,8 @@ export class VerbsView extends ItemView {
 			this.app,
 			this.plugin.settings,
 			this.plugin.filterService,
-			this.plugin.dictionaryService
+			this.plugin.dictionaryService,
+			this.plugin.termService
 		);
 
 		// Render React component

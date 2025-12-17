@@ -3,7 +3,7 @@ import { Root, createRoot } from "react-dom/client";
 import { App } from "obsidian";
 import { LearnLanguageContext, LearnLanguageContextValue } from "../context";
 import { LearnLanguageSettings } from "../types";
-import { FilterService, DictionaryService } from "../services";
+import { FilterService, DictionaryService, TermService } from "../services";
 
 /**
  * Creates a React root and mounts a component with the Learn Language context
@@ -13,7 +13,8 @@ export function createReactRoot(
 	app: App,
 	settings: LearnLanguageSettings,
 	filterService: FilterService,
-	dictionaryService: DictionaryService
+	dictionaryService: DictionaryService,
+	termService?: TermService
 ): ReactMountPoint {
 	const root = createRoot(container);
 
@@ -21,7 +22,8 @@ export function createReactRoot(
 		app,
 		settings,
 		filterService,
-		dictionaryService
+		dictionaryService,
+		termService
 	};
 
 	return new ReactMountPoint(root, contextValue);

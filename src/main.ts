@@ -73,6 +73,7 @@ export default class LearnLanguagePlugin extends Plugin {
 				this.settings,
 				this.dictionaryService,
 				this.filterService,
+				this.termService,
 				() => this.askAIModal.open()
 			)
 		);

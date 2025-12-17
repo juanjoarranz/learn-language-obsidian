@@ -1,11 +1,19 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { DictionaryEntry } from "../../types";
 import { useLearnLanguage } from "../../context";
+
+// Available revision options
+const REVISION_OPTIONS = ["new", "1", "2", "3", "4", "5"];
+
+// Available rating options (star patterns)
+const RATING_OPTIONS = ["", "#⭐", "#⭐⭐", "#⭐⭐⭐"];
 
 interface DictionaryTableProps {
 	entries: DictionaryEntry[];
 	isStudying: boolean;
 	showSourceFirst: boolean;
+	/** Callback when an entry field is updated */
+	onEntryUpdate?: (filePath: string, field: string, value: string) => void;
 }
 
 /**
@@ -14,9 +22,10 @@ interface DictionaryTableProps {
 export function DictionaryTable({
 	entries,
 	isStudying,
-	showSourceFirst
+	showSourceFirst,
+	onEntryUpdate
 }: DictionaryTableProps) {
-	const { app, settings } = useLearnLanguage();
+	const { app, settings, termService } = useLearnLanguage();
 	const targetLang = settings.targetLanguage;
 	const sourceLang = settings.sourceLanguage;
 
@@ -53,6 +62,7 @@ export function DictionaryTable({
 							key={entry.file.path}
 							entry={entry}
 							showSourceFirst={showSourceFirst}
+							termService={termService}
 						/>
 					) : (
 						<NormalRow
@@ -214,17 +224,45 @@ function NormalRow({ entry, onOpenFile }: NormalRowProps) {
 interface StudyRowProps {
 	entry: DictionaryEntry;
 	showSourceFirst: boolean;
+	termService?: import("../../services").TermService;
 }
 
-function StudyRow({ entry, showSourceFirst }: StudyRowProps) {
+function StudyRow({ entry, showSourceFirst, termService }: StudyRowProps) {
 	const [isExpanded, setIsExpanded] = React.useState(false);
+	const [revision, setRevision] = useState(entry.revision || "new");
+	const [rating, setRating] = useState(entry.rating || "");
 
-  const questionLink = (
-    <a className="internal-link" href={entry.file.path}>
-      {showSourceFirst ? entry.sourceWord : entry.file.basename}
-    </a>);
+	const handleRevisionChange = useCallback(async (e: React.ChangeEvent<HTMLSelectElement>) => {
+		e.stopPropagation();
+		const newValue = e.target.value;
+		setRevision(newValue);
+		if (termService) {
+			await termService.updateField(entry.file.path, "Revision", newValue);
+		}
+	}, [termService, entry.file.path]);
+
+	const handleRatingChange = useCallback(async (e: React.ChangeEvent<HTMLSelectElement>) => {
+		e.stopPropagation();
+		const newValue = e.target.value;
+		setRating(newValue);
+		if (termService) {
+			await termService.updateField(entry.file.path, "Rating", newValue);
+		}
+	}, [termService, entry.file.path]);
+
+	const questionLink = (
+		<a className="internal-link" href={entry.file.path}>
+			{showSourceFirst ? entry.sourceWord : entry.file.basename}
+		</a>
+	);
 
 	const answerText = showSourceFirst ? entry.file.basename : entry.sourceWord;
+
+	// Format rating display text (remove # for display)
+	const formatRatingOption = (opt: string) => {
+		if (!opt) return "(no rating)";
+		return opt.replace(/^#/, "");
+	};
 
 	return (
 		<tr className="ll-study-row">
@@ -233,7 +271,31 @@ function StudyRow({ entry, showSourceFirst }: StudyRowProps) {
 					className="ll-study-question"
 					onClick={() => setIsExpanded(!isExpanded)}
 				>
-					<h4 className="ll-collapsible">{questionLink}</h4>
+					<div className="ll-study-question-content">
+						<h4 className="ll-collapsible">{questionLink}</h4>
+						<div className="ll-study-dropdowns" onClick={(e) => e.stopPropagation()}>
+							<select
+								className="dropdown ll-study-dropdown"
+								value={revision}
+								onChange={handleRevisionChange}
+								title="Revision"
+							>
+								{REVISION_OPTIONS.map(opt => (
+									<option key={opt} value={opt}>{opt}</option>
+								))}
+							</select>
+							<select
+								className="dropdown ll-study-dropdown ll-rating-dropdown"
+								value={rating}
+								onChange={handleRatingChange}
+								title="Rating"
+							>
+								{RATING_OPTIONS.map(opt => (
+									<option key={opt} value={opt}>{formatRatingOption(opt)}</option>
+								))}
+							</select>
+						</div>
+					</div>
 				</div>
 				<div className={`ll-study-answer ${isExpanded ? "" : "ll-hidden"}`}>
 					<span className="ll-answer-text">{answerText}</span>

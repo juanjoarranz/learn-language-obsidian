@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import { App } from "obsidian";
 import { LearnLanguageSettings } from "../types";
-import { FilterService, DictionaryService } from "../services";
+import { FilterService, DictionaryService, TermService } from "../services";
 
 /**
  * Context value for Learn Language plugin
@@ -11,6 +11,7 @@ export interface LearnLanguageContextValue {
 	settings: LearnLanguageSettings;
 	filterService: FilterService;
 	dictionaryService: DictionaryService;
+	termService?: TermService;
 }
 
 /**
