@@ -265,7 +265,8 @@ export class OpenAIService {
 	private async createAssistant(termsFileId: string, contextFileId: string): Promise<string | null> {
 		const termTypesFileName = "TermTypes.txt";
 		const contextTypesFileName = "ContextTypes.txt";
-
+    const targetLanguage = this.settings.targetLanguage || "French";
+    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
 		try {
 			const response = await fetch(`${OPENAI_BASE_URL}/assistants`, {
 				method: "POST",
@@ -276,7 +277,7 @@ export class OpenAIService {
 				},
 				body: JSON.stringify({
 					model: OPENAI_MODEL,
-					instructions: `Usa los ficheros adjuntos para clasificar el término en francés que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en español que hay entre paréntesis.
+					instructions: `Usa los ficheros adjuntos para clasificar el término en ${targetLanguage} que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en ${sourceLanguage} que hay entre paréntesis.
 
 El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
 
@@ -349,8 +350,10 @@ El valor context lo debes deducir a partir del fichero ${contextTypesFileName} c
 	): Promise<void> {
 		const termTypesFileName = "TermTypes.txt";
 		const contextTypesFileName = "ContextTypes.txt";
+    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
 
-		const initialQuestion = `Por cada término o expresión que te suministre posteriormente, dime primero su traducción al español, luego el tipo de término (type) basado en el fichero ${termTypesFileName} con id ${termsFileId}, luego el contexto (context) basado en el fichero ${contextTypesFileName} con id ${contextFileId} y finalmente algunos ejemplos`;
+
+		const initialQuestion = `Por cada término o expresión que te suministre posteriormente, dime primero su traducción al ${sourceLanguage}, luego el tipo de término (type) basado en el fichero ${termTypesFileName} con id ${termsFileId}, luego el contexto (context) basado en el fichero ${contextTypesFileName} con id ${contextFileId} y finalmente algunos ejemplos`;
 
 		await this.askAssistant(assistantId, threadId, initialQuestion);
 	}
@@ -366,7 +369,7 @@ El valor context lo debes deducir a partir del fichero ${contextTypesFileName} c
 	): Promise<void> {
 		const termTypesFileName = "TermTypes.txt";
 		const contextTypesFileName = "ContextTypes.txt";
-
+    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
 		const commonInstructions = `
 El valor del tipo de término debe ser el más exacto y preciso, por ejemplo #verbe/irrégulier/3/ir es más completo y preciso que #verbe/irrégulier/3.
 
@@ -398,7 +401,7 @@ En la respuesta no quiero que muestres la referencia al fichero utilizado, tan s
 Quiero la respuesta en formato json según el siguiente esquema:
 
 {
-  "spanish": <valor de la traducción al español>,
+  "sourceLanguage": <valor de la traducción al ${sourceLanguage} del término que te he suministrado>,
   "type": <valor tipo de término por ejemplo #pronom/personnel/réfléchi o si es multiple pon los valores separadods por coma y espacio por ejemplo #nom/commun , #nom/masculin>,
   "context": <valor del tipo del contexto por ejemplo #travel/transport>,
   "examples": <ejemplo1<br>ejemplo2<br>ejemplo3>
