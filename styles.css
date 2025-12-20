@@ -96,6 +96,120 @@
 }
 
 /* =============================================
+   Searchable Dropdown Styles
+   ============================================= */
+
+.ll-dropdown-container {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+
+.ll-dropdown-input {
+	min-width: 120px;
+	padding: 4px 28px 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 13px;
+	outline: none;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ll-dropdown-input:focus {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+.ll-dropdown-input::placeholder {
+	color: var(--text-muted);
+}
+
+.ll-filter-item.ll-filter-active .ll-dropdown-input {
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.ll-dropdown-toggle {
+	position: absolute;
+	right: 4px;
+	top: 50%;
+	transform: translateY(-50%);
+	appearance: none;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 2px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 2px;
+  height: auto;
+}
+
+.ll-dropdown-toggle:hover {
+	color: var(--text-normal);
+}
+
+.ll-dropdown-arrow {
+	transition: transform 0.2s ease;
+}
+
+.ll-dropdown-arrow-open {
+	transform: rotate(180deg);
+}
+
+.ll-dropdown-list {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	margin: 4px 0 0 0;
+	padding: 4px 0;
+	list-style: none;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	max-height: 250px;
+	overflow-y: auto;
+	z-index: 1000;
+	min-width: 150px;
+}
+
+.ll-dropdown-option {
+	padding: 6px 12px;
+	cursor: pointer;
+	font-size: 13px;
+	transition: background 0.15s ease;
+}
+
+.ll-dropdown-option:hover,
+.ll-dropdown-option-highlighted {
+	background: var(--background-secondary);
+}
+
+.ll-dropdown-option-selected {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ll-dropdown-option-selected:hover,
+.ll-dropdown-option-selected.ll-dropdown-option-highlighted {
+	background: var(--interactive-accent-hover);
+}
+
+.ll-dropdown-no-results {
+	padding: 8px 12px;
+	color: var(--text-muted);
+	font-style: italic;
+	font-size: 13px;
+	text-align: center;
+}
+
+/* =============================================
    Table Styles
    ============================================= */
 
