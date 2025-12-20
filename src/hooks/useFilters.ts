@@ -153,21 +153,28 @@ export function useTypeAhead(
 	const debounceTimerRef = useRef<number | null>(null);
 	const isComposingRef = useRef(false);
 	const isFocusedRef = useRef(false);
+	// Keep track of the latest inputValue to avoid stale closures
+	const inputValueRef = useRef(inputValue);
 
 	// Keep the ref updated with the latest onChange
 	useEffect(() => {
 		onChangeRef.current = onChange;
 	});
 
+	// Keep inputValueRef in sync with inputValue
+	useEffect(() => {
+		inputValueRef.current = inputValue;
+	}, [inputValue]);
+
 	// If external value changes (e.g. filters set programmatically), sync it
 	// only when the user isn't actively typing/focused to avoid clobbering input.
+	// Also check if there's a pending debounce to avoid overwriting in-flight changes.
 	useEffect(() => {
-		if (isFocusedRef.current || isComposingRef.current) return;
+		if (isFocusedRef.current || isComposingRef.current || debounceTimerRef.current) return;
 		const next = normalizeExternal(initialValue);
-		setInputValue(next);
-		if (debounceTimerRef.current) {
-			window.clearTimeout(debounceTimerRef.current);
-			debounceTimerRef.current = null;
+		// Only update if the value actually differs to avoid unnecessary state changes
+		if (next !== inputValueRef.current) {
+			setInputValue(next);
 		}
 	}, [initialValue]);
 
@@ -215,10 +222,11 @@ export function useTypeAhead(
 	const handleBlur = useCallback(() => {
 		isFocusedRef.current = false;
 		// Commit any pending value when leaving the field.
+		// Use ref to get the latest value and avoid stale closure issues.
 		if (!isComposingRef.current) {
-			flushNotify(inputValue);
+			flushNotify(inputValueRef.current);
 		}
-	}, [flushNotify, inputValue]);
+	}, [flushNotify]);
 
 	const handleCompositionStart = useCallback(() => {
 		isComposingRef.current = true;
