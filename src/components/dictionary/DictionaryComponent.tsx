@@ -107,8 +107,6 @@ export function DictionaryComponent({
 		return opts;
 	}, [entries, filterService, filters]);
 
-  //console.log('JAA typeOptions:', typeOptions);
-
 	const contextOptions = useMemo(() => {
 		const facetEntries = filterService.applyFilters(entries, {
 			...filters,

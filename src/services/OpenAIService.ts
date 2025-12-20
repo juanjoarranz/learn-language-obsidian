@@ -5,6 +5,8 @@ import {
 } from "../types";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
+const OPENAI_MODEL = "gpt-4o"; // https://chatgpt.com/c/69466c48-990c-8333-95ff-be44e310932b
+//const OPENAI_MODEL = "gpt-5.2-pro";
 
 /**
  * OpenAIService - Handles all OpenAI API interactions
@@ -51,8 +53,9 @@ export class OpenAIService {
 
 	/**
 	 * Ask AI for term translation and classification
+	 * Returns AITermResponse on success, string on error (to display as notice), or null on failure
 	 */
-	async askForTerm(term: string): Promise<AITermResponse | null> {
+	async askForTerm(term: string): Promise<AITermResponse | string | null> {
 		if (!this.isConfigured()) {
 			console.error("OpenAI API key not configured");
 			return null;
@@ -90,6 +93,12 @@ export class OpenAIService {
 				}
 
 				const newAssistantId = await this.createAssistant(termsFileId, contextFileId);
+
+        if (!newAssistantId) {
+          console.error("Failed to create assistant");
+          return null;
+        }
+
 				assistantId = newAssistantId || "";
 				this.assistantConfig.assistantId = assistantId;
 				this.assistantConfig.updateAssistantId = false;
@@ -176,6 +185,10 @@ export class OpenAIService {
 
 		} catch (error) {
 			console.error("Error asking AI for term:", error);
+			// Return error message as string to display in Notice
+			if (error instanceof Error) {
+				return error.message;
+			}
 			return null;
 		}
 	}
@@ -262,7 +275,7 @@ export class OpenAIService {
 					"OpenAI-Beta": "assistants=v2",
 				},
 				body: JSON.stringify({
-					model: "gpt-4o",
+					model: OPENAI_MODEL,
 					instructions: `Usa los ficheros adjuntos para clasificar el término en francés que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en español que hay entre paréntesis.
 
 El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
@@ -273,11 +286,20 @@ El valor context lo debes deducir a partir del fichero ${contextTypesFileName} c
 			});
 
 			const data = await response.json();
+
+			// Handle API error responses
+			if (data.error) {
+				const errorMessage = data.error.message || "Unknown error";
+				console.error("OpenAI API Error:", data.error);
+				throw new Error(errorMessage);
+			}
+
 			console.log("Assistant created:", data);
+
 			return data.id || null;
 		} catch (error) {
 			console.error("Error creating assistant:", error);
-			return null;
+			throw error;
 		}
 	}
 

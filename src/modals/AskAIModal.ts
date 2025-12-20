@@ -76,10 +76,17 @@ export class AskAIModal extends Modal {
 		new Notice(`Asking AI for "${this.termValue}"...`);
 		const response = await this.plugin.openAIService.askForTerm(this.termValue);
 
-    console.log('AI response:', response);
+    console.log('JAA AI response:', response);
 
-	const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
-		if (response) {
+		// If response is not a valid JSON object (e.g., plain text message), show it as a Notice
+		if (response && typeof response === 'string') {
+			new Notice(response, 0);
+			this.close();
+			return;
+		}
+
+	  const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
+		if (response && typeof response === 'object') {
 			// Create the term with AI response
 			const file = await this.plugin.termService.createOrUpdateTermPage({
 				targetTerm: this.termValue,
