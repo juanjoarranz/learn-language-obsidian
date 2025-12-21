@@ -401,7 +401,7 @@ En la respuesta no quiero que muestres la referencia al fichero utilizado, tan s
 Quiero la respuesta en formato json según el siguiente esquema:
 
 {
-  "sourceLanguage": <valor de la traducción al ${sourceLanguage} del término que te he suministrado>,
+  "${sourceLanguage.toLowerCase()}": <valor de la traducción al ${sourceLanguage} del término que te he suministrado>,
   "type": <valor tipo de término por ejemplo #pronom/personnel/réfléchi o si es multiple pon los valores separadods por coma y espacio por ejemplo #nom/commun , #nom/masculin>,
   "context": <valor del tipo del contexto por ejemplo #travel/transport>,
   "examples": <ejemplo1<br>ejemplo2<br>ejemplo3>
