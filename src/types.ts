@@ -226,10 +226,13 @@ export interface OpenAIAssistantConfig {
 	threadId: string;
 }
 
+export type AITermRating = "#⭐⭐⭐" | "#⭐⭐" | "#⭐";
+
 export interface AITermResponse {
-	spanish: string;
+	[key: string]: unknown;
 	type: string;
 	context: string;
+	rating?: AITermRating;
 	examples: string;
 }
 
@@ -265,7 +268,7 @@ export interface LearnLanguageAPI {
 	getGrammarPages: () => Promise<GrammarPage[]>;
 	createTerm: (term: Partial<DictionaryEntry>) => Promise<void>;
 	updateTerm: (filePath: string, updates: Partial<DictionaryEntry>) => Promise<void>;
-	askAI: (term: string) => Promise<AITermResponse | null>;
+	askAI: (term: string) => Promise<AITermResponse | string | null>;
 	filterEntries: <T extends DictionaryEntry>(entries: T[], filters: Partial<FilterState>) => T[];
 	paginateEntries: <T>(entries: T[], start: number, size: number) => T[];
 }

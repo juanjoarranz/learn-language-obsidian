@@ -6,6 +6,7 @@ import {
 	ButtonComponent
 } from "obsidian";
 import type LearnLanguagePlugin from "../main";
+import type { AITermResponse } from "../types";
 
 /**
  * Quick input modal for asking AI about a term
@@ -76,7 +77,7 @@ export class AskAIModal extends Modal {
 		new Notice(`Asking AI for "${this.termValue}"...`);
 		const response = await this.plugin.openAIService.askForTerm(this.termValue);
 
-    console.log('JAA AI response:', response);
+		console.log("JAA AI response:", response);
 
 		// If response is not a valid JSON object (e.g., plain text message), show it as a Notice
 		if (response && typeof response === 'string') {
@@ -85,15 +86,20 @@ export class AskAIModal extends Modal {
 			return;
 		}
 
-	  const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
+		const sourceLanguage = this.plugin.settings.sourceLanguage || "Spanish";
 		if (response && typeof response === 'object') {
+			const ai = response as AITermResponse;
+			const sourceKey = sourceLanguage.toLowerCase();
+			const sourceTerm = typeof ai[sourceKey] === "string" ? (ai[sourceKey] as string) : undefined;
+
 			// Create the term with AI response
 			const file = await this.plugin.termService.createOrUpdateTermPage({
 				targetTerm: this.termValue,
-				sourceTerm: (response as unknown as Record<string, unknown>)[sourceLanguage.toLowerCase()] as string | undefined,
-				type: response.type,
-				context: response.context,
-				examples: response.examples,
+				sourceTerm,
+				type: ai.type,
+				context: ai.context,
+				examples: ai.examples,
+				rating: ai.rating
 			});
 
 			if (file) {

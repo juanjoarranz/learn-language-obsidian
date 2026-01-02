@@ -2,7 +2,8 @@ import { App, TFile, Notice } from "obsidian";
 import {
 	DictionaryEntry,
 	LearnLanguageSettings,
-	AITermResponse
+	AITermResponse,
+	AITermRating
 } from "../types";
 
 /**
@@ -35,6 +36,7 @@ export class TermService {
 		type?: string;
 		context?: string;
 		examples?: string;
+		rating?: AITermRating;
 	}): Promise<TFile | null> {
 		const fileName = term.targetTerm;
 		const filePath = `${this.settings.dictionaryFolder}/${fileName}.md`;
@@ -62,6 +64,7 @@ export class TermService {
 		type?: string;
 		context?: string;
 		examples?: string;
+		rating?: AITermRating;
 	}): Promise<TFile | null> {
 		// Get template content
 		let fileContent = "";
@@ -91,6 +94,9 @@ export class TermService {
 			if (term.context) {
 				await this.updateInlineFieldValue(fullFilePath, "Context", term.context);
 			}
+			if (term.rating) {
+				await this.updateInlineFieldValue(fullFilePath, "Rating", term.rating);
+			}
 			if (term.examples) {
 				await this.updateInlineFieldValue(fullFilePath, "Examples", term.examples);
 			}
@@ -119,6 +125,7 @@ export class TermService {
 		type?: string;
 		context?: string;
 		examples?: string;
+		rating?: AITermRating;
 	}): Promise<void> {
 		const filePath = file.path;
 		let termUpdated = false;
@@ -129,6 +136,7 @@ export class TermService {
 		// Get current inline field values
 		const currentType = this.getInlineFieldValue(content, "Type");
 		const currentContext = this.getInlineFieldValue(content, "Context");
+		const currentRating = this.getInlineFieldValue(content, "Rating");
 		const currentExamples = this.getInlineFieldValue(content, "Examples");
 
 		// Update Type only if empty
@@ -141,6 +149,12 @@ export class TermService {
 		// Update Context only if empty
 		if ((!currentContext || currentContext === undefined || currentContext === "") && term.context) {
 			await this.updateInlineFieldValue(filePath, "Context", term.context);
+			termUpdated = true;
+		}
+
+		// Update Rating only if empty
+		if ((!currentRating || currentRating === undefined || currentRating === "") && term.rating) {
+			await this.updateInlineFieldValue(filePath, "Rating", term.rating);
 			termUpdated = true;
 		}
 
@@ -177,6 +191,7 @@ export class TermService {
 		type?: string;
 		context?: string;
 		examples?: string;
+		rating?: AITermRating;
 	}): Promise<void> {
 		const filePath = file.path;
 
@@ -186,6 +201,9 @@ export class TermService {
 		}
 		if (term.context !== undefined) {
 			await this.updateInlineFieldValue(filePath, "Context", term.context);
+		}
+		if (term.rating !== undefined) {
+			await this.updateInlineFieldValue(filePath, "Rating", term.rating);
 		}
 		if (term.examples !== undefined) {
 			await this.updateInlineFieldValue(filePath, "Examples", term.examples);
@@ -204,13 +222,14 @@ export class TermService {
 		const sourceLang = this.settings.sourceLanguage.toLowerCase();
 
 		// Get the source translation from the AI response using the configured source language
-		const sourceTerm = (aiResponse as unknown as Record<string, unknown>)[sourceLang] as string;
+		const sourceTerm = typeof aiResponse[sourceLang] === "string" ? (aiResponse[sourceLang] as string) : "";
 
 		return await this.createOrUpdateTermPage({
 			targetTerm: targetTerm,
 			sourceTerm: sourceTerm,
 			type: aiResponse.type,
 			context: aiResponse.context,
+			rating: aiResponse.rating,
 			examples: aiResponse.examples,
 		});
 	}

@@ -404,6 +404,7 @@ Quiero la respuesta en formato json según el siguiente esquema:
   "${sourceLanguage.toLowerCase()}": <valor de la traducción al ${sourceLanguage} del término que te he suministrado>,
   "type": <valor tipo de término por ejemplo #pronom/personnel/réfléchi o si es multiple pon los valores separadods por coma y espacio por ejemplo #nom/commun , #nom/masculin>,
   "context": <valor del tipo del contexto por ejemplo #travel/transport>,
+  "rating": <uno de los valores: "#⭐⭐⭐" o "#⭐⭐" o "#⭐", donde #⭐⭐⭐ significa que el término es muy común y utilizado y #⭐ significa que el término es poco utilizado o poco común>,
   "examples": <ejemplo1<br>ejemplo2<br>ejemplo3>
 }
 
