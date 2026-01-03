@@ -3,6 +3,7 @@ import {
 	LearnLanguageSettings,
 	AITermResponse
 } from "../types";
+import { getInitialQuestionPrompt, getAdditionalInstructionsPrompt } from "./openAIServicesPrompts";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const OPENAI_MODEL = "gpt-4o"; // https://chatgpt.com/c/69466c48-990c-8333-95ff-be44e310932b
@@ -103,8 +104,7 @@ export class OpenAIService {
 			if (isInitialQuestion || !threadId) {
 				console.log("Creating new thread...");
 				const fileIds = [termsFileId, contextFileId].filter(id => id.length > 0);
-				const newThreadId = await this.createThread(fileIds);
-
+				const newThreadId = await this.createThreadWithRetry(fileIds, 3000);
 				if (!newThreadId) {
 					console.error("Failed to create thread");
 					return null;
@@ -146,7 +146,7 @@ export class OpenAIService {
 				console.log("Rate limit exceeded, creating new thread and retrying...");
 
 				const fileIds = [termsFileId, contextFileId].filter(id => id.length > 0);
-				const retryThreadId = await this.createThread(fileIds);
+				const retryThreadId = await this.createThreadWithRetry(fileIds);
 				if (!retryThreadId) return null;
 
 				threadId = retryThreadId;
@@ -237,22 +237,24 @@ export class OpenAIService {
 	 * Reset thread (create new conversation)
 	 */
 	async resetThread(): Promise<void> {
-		const fileIds = [
-			this.assistantConfig.termsFileId,
-			this.assistantConfig.contextFileId
-		].filter(Boolean);
+		// const fileIds = [
+		// 	this.assistantConfig.termsFileId,
+		// 	this.assistantConfig.contextFileId
+		// ].filter(Boolean);
 
-		const threadId = await this.createThread(fileIds);
-		if (threadId) {
-			this.assistantConfig.threadId = threadId;
+		//const threadId = await this.createThread(fileIds);
+		//if (threadId) {
+			this.assistantConfig.threadId = "threadId to be created during Term ask";
 			this.assistantConfig.isInitialQuestion = true;
 			this.assistantConfig.withAdditionalInstructions = true;
 			await this.saveAssistantConfig();
-		}
+		//}
+
+    console.log("Thread reset completed. Updated assistantConfig:", this.assistantConfig );
 	}
 
 	/**
-	 * Force refresh - recreate assistant and thread
+	 * Force refresh - recreate assistant and thread. Not Used at the moment.
 	 */
 	async forceRefresh(): Promise<void> {
 		this.assistantConfig.updateAssistantId = true;
@@ -378,7 +380,7 @@ export class OpenAIService {
 	/**
 	 * Create a new thread with attached files
 	 */
-	private async createThread(fileIds: string[]): Promise<string | null> {
+	private async createThread(fileIds: string[]): Promise<string | { message: string } | null> {
 		const attachments = fileIds.map(id => ({
 			file_id: id,
 			tools: [{ type: "file_search" }]
@@ -402,12 +404,47 @@ export class OpenAIService {
 			});
 
 			const data = await response.json();
+
+			if (data.error) {
+				const errorMessage = data.error.message || "Unknown error";
+				console.error("OpenAI API Error:", errorMessage);
+				return data.error;
+			}
+
 			console.log("Thread created:", data);
 			return data.id || null;
+
 		} catch (error) {
 			console.error("Error creating thread:", error);
 			return null;
 		}
+	}
+
+	/**
+	 * Create a thread and (if needed) retry once after a short delay.
+	 * Returns the thread id on success, otherwise null.
+	 */
+	private async createThreadWithRetry(fileIds: string[], retryDelayMs: number = 3000): Promise<string | null> {
+		const threadResponse = await this.createThread(fileIds);
+		if (typeof threadResponse === "string" && threadResponse.length > 0) {
+			return threadResponse;
+		}
+
+		if (threadResponse && typeof threadResponse === "object" && "message" in threadResponse) {
+			console.error("Failed to create thread", (threadResponse as { message: string }).message);
+		}
+
+		await this.sleep(retryDelayMs);
+		const retryThreadResponse = await this.createThread(fileIds);
+		if (typeof retryThreadResponse === "string" && retryThreadResponse.length > 0) {
+			return retryThreadResponse;
+		}
+
+		if (retryThreadResponse && typeof retryThreadResponse === "object" && "message" in retryThreadResponse) {
+			console.error("Failed to create thread (retry)", (retryThreadResponse as { message: string }).message);
+		}
+
+		return null;
 	}
 
 	/**
@@ -423,8 +460,13 @@ export class OpenAIService {
 		const contextTypesFileName = "ContextTypes.txt";
     const sourceLanguage = this.settings.sourceLanguage || "Spanish";
 
-
-		const initialQuestion = `Por cada término o expresión que te suministre posteriormente, dime primero su traducción al ${sourceLanguage}, luego el tipo de término (type) basado en el fichero ${termTypesFileName} con id ${termsFileId}, luego el contexto (context) basado en el fichero ${contextTypesFileName} con id ${contextFileId} y finalmente algunos ejemplos`;
+		const initialQuestion = getInitialQuestionPrompt(
+      sourceLanguage,
+      termTypesFileName,
+      contextTypesFileName,
+      termsFileId,
+      contextFileId
+    );
 
 		await this.askAssistant(assistantId, threadId, initialQuestion);
 	}
@@ -441,49 +483,16 @@ export class OpenAIService {
 		const termTypesFileName = "TermTypes.txt";
 		const contextTypesFileName = "ContextTypes.txt";
     const sourceLanguage = this.settings.sourceLanguage || "Spanish";
-		const commonInstructions = `
-      El valor del tipo de término debe ser el más exacto y preciso, por ejemplo #verbe/irrégulier/3/ir es más completo y preciso que #verbe/irrégulier/3.
 
-      El valor del tipo de término puede ser múltiple, por ejemplo auberge se corresponde con #nom/commun, #nom/masculin y #nom/singulier. En estos casos establece el valor final type con cada uno de los tipos SEPARADOS por un espacio y una coma.
+    const additionalInstructions = getAdditionalInstructionsPrompt(
+      sourceLanguage,
+      termTypesFileName,
+      contextTypesFileName,
+      termsFileId,
+      contextFileId
+    );
 
-      Cuando un valor de tipo de término ya aparece en el nivel inferior, dicho valor no se duplica: por ejemplo dado que #verbe/régulier/1 ya contiene verbe, el valor #verbe no se debe repetir en el resultado final.
-
-      Muy importante: el valor del tipo de término (type) se obtiene exclusivamente de los valores del fichero ${termTypesFileName} con id ${termsFileId}. No se pueden inventar nuevos valores.
-
-      No inventes valores de type. Por ejemplo el type #préposition/loc_prépositionnelle no existe en el fichero ${termTypesFileName} con id ${termsFileId}. Utiliza el valor que mejor que se corresponda con el fichero ${termTypesFileName} con id ${termsFileId}.
-
-      De igual forma el valor de context se obtiene exclusivamente de los valores del fichero ${contextTypesFileName} con id ${contextFileId} (no inventes nuevos valores). Por ejemplo el contexto #animals no existe en el fichero ${contextTypesFileName} con id ${contextFileId}, en su lugar debes utilizar el valor #env/animal que sí existe en el fichero ${contextTypesFileName} con id ${contextFileId}.
-
-      No inventes valores de context. Por ejemplo el context #society no existe en el fichero ${contextTypesFileName} con id ${contextFileId}. Tampoco el valor #shopping/clothes existe en el fichero ${contextTypesFileName} con id ${contextFileId}. Tampoco existe el context #economy/agriculture.
-
-      El context #economy/agriculture no existe en el fichero ${contextTypesFileName} con id ${contextFileId}. Deja el resultado en blanco o vacío en esos casos.
-
-      Si el context de un término no se puede asociar a un valor del fichero ${contextTypesFileName} con id ${contextFileId} entonces se deja vacío.
-
-      El valor del contexto puede ser nulo si el término no se puede asociar a ningún contexto, puede ser un sólo valor, o puede ser múltiple y en estos casos establece el valor final con cada uno de los tipos separados por coma.
-
-      En los ejemplos encierra el término objetivo entre asteriscos, por ejemplo para el término arnaque un ejemplo sería "Elle a été victime d'une *arnaque* financière."
-
-      Cuando se trate de un verbo los ejemplos que generes hazlo con diferentes formas verbales que ilustren su uso. Repito, cuando se trate de un verbo, los ejemplos deben siempre utilizar diferentes formas verbales. Respeta siempre esta instrucción.
-
-      En la respuesta no quiero que muestres la referencia al fichero utilizado, tan sólo responde con el formato json.`;
-
-		const clarification = `
-      Quiero la respuesta en formato json según el siguiente esquema:
-
-      {
-        "${sourceLanguage.toLowerCase()}": <valor de la traducción al ${sourceLanguage} del término que te he suministrado>,
-        "type": <valor tipo de término por ejemplo #pronom/personnel/réfléchi o si es multiple pon los valores separadods por coma y espacio por ejemplo #nom/commun , #nom/masculin>,
-        "context": <valor del tipo del contexto por ejemplo #travel/transport>,
-        "rating": <uno de los valores: "#⭐⭐⭐" o "#⭐⭐" o "#⭐", donde #⭐⭐⭐ significa que el término es muy común y utilizado y #⭐ significa que el término es poco utilizado o poco común>,
-        "examples": <ejemplo1<br>ejemplo2<br>ejemplo3>
-      }
-
-      No envuelvas la respuesta json con el calificador triple coma invertida-json. Limítate a devolver un string json con el esquema especificado anteriormente.
-
-      ${commonInstructions}`;
-
-		await this.askAssistant(assistantId, threadId, clarification);
+		await this.askAssistant(assistantId, threadId, additionalInstructions);
 	}
 
 	/**
