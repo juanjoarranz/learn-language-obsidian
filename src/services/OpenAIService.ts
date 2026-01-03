@@ -38,20 +38,6 @@ export class OpenAIService {
 	}
 
 	/**
-	 * Get assistant config from settings
-	 */
-	private get assistantConfig() {
-		return this.settings.askTermAssistant;
-	}
-
-	/**
-	 * Save assistant config (saves entire settings)
-	 */
-	private async saveAssistantConfig(): Promise<void> {
-		await this.saveSettingsCallback();
-	}
-
-	/**
 	 * Ask AI for term translation and classification
 	 * Returns AITermResponse on success, string on error (to display as notice), or null on failure
 	 */
@@ -194,18 +180,6 @@ export class OpenAIService {
 	}
 
 	/**
-	 * Parse JSON response from assistant
-	 */
-	private parseJsonResponse(response: string): AITermResponse | null {
-		try {
-			return JSON.parse(response) as AITermResponse;
-		} catch {
-			console.error("Failed to parse AI response as JSON:", response);
-			return null;
-		}
-	}
-
-	/**
 	 * Upload a file to OpenAI
 	 */
 	async uploadFile(filePath: string, purpose: string = "assistants"): Promise<string | null> {
@@ -260,6 +234,103 @@ export class OpenAIService {
 	}
 
 	/**
+	 * Reset thread (create new conversation)
+	 */
+	async resetThread(): Promise<void> {
+		const fileIds = [
+			this.assistantConfig.termsFileId,
+			this.assistantConfig.contextFileId
+		].filter(Boolean);
+
+		const threadId = await this.createThread(fileIds);
+		if (threadId) {
+			this.assistantConfig.threadId = threadId;
+			this.assistantConfig.isInitialQuestion = true;
+			this.assistantConfig.withAdditionalInstructions = true;
+			await this.saveAssistantConfig();
+		}
+	}
+
+	/**
+	 * Force refresh - recreate assistant and thread
+	 */
+	async forceRefresh(): Promise<void> {
+		this.assistantConfig.updateAssistantId = true;
+		this.assistantConfig.isInitialQuestion = true;
+		this.assistantConfig.withAdditionalInstructions = true;
+		await this.saveAssistantConfig();
+	}
+
+	/**
+	 * Sync types files with OpenAI - re-upload term and context files
+	 */
+	async syncTypesWithOpenAI(): Promise<void> {
+		// Delete old files if they exist
+		if (this.assistantConfig.termsFileId) {
+			await this.deleteFile(this.assistantConfig.termsFileId);
+		}
+		if (this.assistantConfig.contextFileId) {
+			await this.deleteFile(this.assistantConfig.contextFileId);
+		}
+
+		// Upload new files
+		const termsFileId = await this.uploadFile(this.settings.termTypesFile);
+		const contextFileId = await this.uploadFile(this.settings.contextTypesFile);
+
+		// Update config
+		this.assistantConfig.termsFileId = termsFileId || "";
+		this.assistantConfig.contextFileId = contextFileId || "";
+		this.assistantConfig.updateTermsStructure = false;
+		this.assistantConfig.updateContextStructure = false;
+		this.assistantConfig.updateAssistantId = true; // Need to recreate assistant with new files
+		this.assistantConfig.isInitialQuestion = true;
+		this.assistantConfig.withAdditionalInstructions = true;
+
+		await this.saveAssistantConfig();
+		console.log("Types synced with OpenAI:", {
+			termsFileId,
+			contextFileId
+		});
+	}
+
+	/**
+	 * Get current assistant config (for display in settings)
+	 */
+	getAssistantConfig(): typeof this.settings.askTermAssistant {
+		return this.assistantConfig;
+	}
+
+  // ===================================
+  // Private helper methods
+  // ===================================
+
+	/**
+	 * Get assistant config from settings
+	 */
+	private get assistantConfig() {
+		return this.settings.askTermAssistant;
+	}
+
+	/**
+	 * Save assistant config (saves entire settings)
+	 */
+	private async saveAssistantConfig(): Promise<void> {
+		await this.saveSettingsCallback();
+	}
+
+	/**
+	 * Parse JSON response from assistant
+	 */
+	private parseJsonResponse(response: string): AITermResponse | null {
+		try {
+			return JSON.parse(response) as AITermResponse;
+		} catch {
+			console.error("Failed to parse AI response as JSON:", response);
+			return null;
+		}
+	}
+
+	/**
 	 * Create OpenAI Assistant
 	 */
 	private async createAssistant(termsFileId: string, contextFileId: string): Promise<string | null> {
@@ -279,9 +350,9 @@ export class OpenAIService {
 					model: OPENAI_MODEL,
 					instructions: `Usa los ficheros adjuntos para clasificar el término en ${targetLanguage} que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en ${sourceLanguage} que hay entre paréntesis.
 
-El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
+          El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
 
-El valor context lo debes deducir a partir del fichero ${contextTypesFileName} con id ${contextFileId}.`,
+          El valor context lo debes deducir a partir del fichero ${contextTypesFileName} con id ${contextFileId}.`,
 					tools: [{ type: "file_search" }]
 				}),
 			});
@@ -533,73 +604,6 @@ ${commonInstructions}`;
 			console.error("Error asking assistant:", error);
 			return null;
 		}
-	}
-
-	/**
-	 * Reset thread (create new conversation)
-	 */
-	async resetThread(): Promise<void> {
-		const fileIds = [
-			this.assistantConfig.termsFileId,
-			this.assistantConfig.contextFileId
-		].filter(Boolean);
-
-		const threadId = await this.createThread(fileIds);
-		if (threadId) {
-			this.assistantConfig.threadId = threadId;
-			this.assistantConfig.isInitialQuestion = true;
-			this.assistantConfig.withAdditionalInstructions = true;
-			await this.saveAssistantConfig();
-		}
-	}
-
-	/**
-	 * Force refresh - recreate assistant and thread
-	 */
-	async forceRefresh(): Promise<void> {
-		this.assistantConfig.updateAssistantId = true;
-		this.assistantConfig.isInitialQuestion = true;
-		this.assistantConfig.withAdditionalInstructions = true;
-		await this.saveAssistantConfig();
-	}
-
-	/**
-	 * Sync types files with OpenAI - re-upload term and context files
-	 */
-	async syncTypesWithOpenAI(): Promise<void> {
-		// Delete old files if they exist
-		if (this.assistantConfig.termsFileId) {
-			await this.deleteFile(this.assistantConfig.termsFileId);
-		}
-		if (this.assistantConfig.contextFileId) {
-			await this.deleteFile(this.assistantConfig.contextFileId);
-		}
-
-		// Upload new files
-		const termsFileId = await this.uploadFile(this.settings.termTypesFile);
-		const contextFileId = await this.uploadFile(this.settings.contextTypesFile);
-
-		// Update config
-		this.assistantConfig.termsFileId = termsFileId || "";
-		this.assistantConfig.contextFileId = contextFileId || "";
-		this.assistantConfig.updateTermsStructure = false;
-		this.assistantConfig.updateContextStructure = false;
-		this.assistantConfig.updateAssistantId = true; // Need to recreate assistant with new files
-		this.assistantConfig.isInitialQuestion = true;
-		this.assistantConfig.withAdditionalInstructions = true;
-
-		await this.saveAssistantConfig();
-		console.log("Types synced with OpenAI:", {
-			termsFileId,
-			contextFileId
-		});
-	}
-
-	/**
-	 * Get current assistant config (for display in settings)
-	 */
-	getAssistantConfig(): typeof this.settings.askTermAssistant {
-		return this.assistantConfig;
 	}
 
 	/**
