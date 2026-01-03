@@ -3,7 +3,10 @@ import {
 	LearnLanguageSettings,
 	AITermResponse
 } from "../types";
-import { getInitialQuestionPrompt, getAdditionalInstructionsPrompt } from "./openAIServicesPrompts";
+import {
+  getInitialQuestionPrompt,
+  getAdditionalInstructionsPrompt,
+  getAssistantInstructions } from "./openAIServicesPrompts";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const OPENAI_MODEL = "gpt-4o"; // https://chatgpt.com/c/69466c48-990c-8333-95ff-be44e310932b
@@ -244,7 +247,7 @@ export class OpenAIService {
 
 		//const threadId = await this.createThread(fileIds);
 		//if (threadId) {
-			this.assistantConfig.threadId = "threadId to be created during Term ask";
+			this.assistantConfig.threadId = "threadId to be created during next Term ask";
 			this.assistantConfig.isInitialQuestion = true;
 			this.assistantConfig.withAdditionalInstructions = true;
 			await this.saveAssistantConfig();
@@ -340,6 +343,15 @@ export class OpenAIService {
 		const contextTypesFileName = "ContextTypes.txt";
     const targetLanguage = this.settings.targetLanguage || "French";
     const sourceLanguage = this.settings.sourceLanguage || "Spanish";
+
+    const instructions = getAssistantInstructions(
+      sourceLanguage,
+      targetLanguage,
+      termsFileId,
+      contextFileId,
+      termTypesFileName,
+      contextTypesFileName);
+
 		try {
 			const response = await fetch(`${OPENAI_BASE_URL}/assistants`, {
 				method: "POST",
@@ -350,11 +362,7 @@ export class OpenAIService {
 				},
 				body: JSON.stringify({
 					model: OPENAI_MODEL,
-					instructions: `Usa los ficheros adjuntos para clasificar el término en ${targetLanguage} que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en ${sourceLanguage} que hay entre paréntesis.
-
-          El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
-
-          El valor context lo debes deducir a partir del fichero ${contextTypesFileName} con id ${contextFileId}.`,
+					instructions,
 					tools: [{ type: "file_search" }]
 				}),
 			});

@@ -1,4 +1,18 @@
 
+export const getAssistantInstructions = (
+  sourceLanguage: string,
+  targetLanguage: string,
+  termsFileId: string,
+  contextFileId: string,
+  termTypesFileName: string,
+  contextTypesFileName: string): string => `
+    Usa los ficheros adjuntos para clasificar el término en ${targetLanguage} que posteriormente te suministraré. Por ejemplo el término 'au debut' es de tipo #adverbe/loc_adverbial. No añadas la traducción posterior en ${sourceLanguage} que hay entre paréntesis.
+
+    El valor type lo debes deducir a partir del fichero ${termTypesFileName} con id ${termsFileId}.
+
+    El valor context lo debes deducir a partir del fichero ${contextTypesFileName} con id ${contextFileId}.
+  `;
+
 export const getInitialQuestionPrompt = (
   sourceLanguage: string,
   termTypesFileName: string,
@@ -8,7 +22,6 @@ export const getInitialQuestionPrompt = (
 ): string => `
     Por cada término o expresión que te suministre posteriormente, dime primero su traducción al ${sourceLanguage}, luego el tipo de término (type) basado en el fichero ${termTypesFileName} con id ${termsFileId}, luego el contexto (context) basado en el fichero ${contextTypesFileName} con id ${contextFileId} y finalmente algunos ejemplos
     `;
-
 
 export const getAdditionalInstructionsPrompt = (
   sourceLanguage: string,
