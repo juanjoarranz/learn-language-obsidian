@@ -219,7 +219,7 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Term types file")
-			.setDesc("File containing term type definitions")
+			.setDesc("TextFile containing term type definitions")
 			.addText(text => text
 				.setPlaceholder("30. Grammar/TermTypes.txt")
 				.setValue(this.plugin.settings.termTypesFile)
@@ -230,7 +230,7 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Context types file")
-			.setDesc("File containing context type definitions")
+			.setDesc("Text File containing context type definitions")
 			.addText(text => text
 				.setPlaceholder("30. Grammar/ContextTypes.txt")
 				.setValue(this.plugin.settings.contextTypesFile)
@@ -289,12 +289,12 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Auto-sync types with OpenAI")
-			.setDesc("Automatically upload term/context types files when changed")
+			.setName("Auto-sync Classification Files with OpenAI")
+			.setDesc("Automatically upload term and context types files when changed")
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.autoSyncTypesWithOpenAI)
+				.setValue(this.plugin.settings.autoSyncClassificationFilesWithOpenAI)
 				.onChange(async (value) => {
-					this.plugin.settings.autoSyncTypesWithOpenAI = value;
+					this.plugin.settings.autoSyncClassificationFilesWithOpenAI = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -333,7 +333,7 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 		const openAIActions = containerEl.createDiv({ cls: "ll-openai-actions" });
 
 		new Setting(openAIActions)
-			.setName("Sync types files with OpenAI")
+			.setName("Sync Classification Files with OpenAI")
 			.setDesc("Upload/re-upload term and context types files to OpenAI")
 			.addButton(button => button
 				.setButtonText("Sync Now")
@@ -345,7 +345,7 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 
 					new Notice("Syncing types with OpenAI...");
 					try {
-						await this.plugin.openAIService.syncTypesWithOpenAI();
+						await this.plugin.openAIService.syncClassificationFilesWithOpenAI();
 						await this.plugin.saveSettings();
 						new Notice("Types synced successfully!");
 						this.display(); // Refresh to show new IDs

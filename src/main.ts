@@ -113,7 +113,7 @@ export default class LearnLanguagePlugin extends Plugin {
 		);
 
 		// Auto-sync types with OpenAI if configured
-		if (this.settings.autoSyncTypesWithOpenAI && this.settings.openAIApiKey) {
+		if (this.settings.autoSyncClassificationFilesWithOpenAI && this.settings.openAIApiKey) {
 			this.registerEvent(
 				this.app.vault.on("modify", async (file) => {
 					if (file instanceof TFile) {
@@ -121,7 +121,7 @@ export default class LearnLanguagePlugin extends Plugin {
 							file.path === this.settings.contextTypesFile) {
 							// Debounce sync
 							setTimeout(async () => {
-								await this.openAIService.syncTypesWithOpenAI();
+								await this.openAIService.syncClassificationFilesWithOpenAI();
 								await this.saveSettings();
 							}, 5000);
 						}

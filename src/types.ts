@@ -173,7 +173,7 @@ export interface LearnLanguageSettings {
 	enableStudyMode: boolean;
 
 	// Auto-sync
-	autoSyncTypesWithOpenAI: boolean;
+	autoSyncClassificationFilesWithOpenAI: boolean;
 }
 
 export const DEFAULT_SETTINGS: LearnLanguageSettings = {
@@ -206,7 +206,7 @@ export const DEFAULT_SETTINGS: LearnLanguageSettings = {
 
 	defaultPageSize: 100,
 	enableStudyMode: true,
-	autoSyncTypesWithOpenAI: true,
+	autoSyncClassificationFilesWithOpenAI: true,
 };
 
 // ============================================
