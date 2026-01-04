@@ -240,7 +240,11 @@ export function registerDictionaryCodeBlockProcessor(
 	dictionaryService: DictionaryService,
 	filterService: FilterService,
 	termService: TermService,
-	onAskAIForTerm?: () => void
+	onAskAIForTerm?: () => void,
+	onRegisterRefresher?: (
+		el: HTMLElement,
+		refresher: () => Promise<void> | void
+	) => void | (() => void)
 ): (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => Promise<void> {
 
 	return async (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> => {
@@ -322,6 +326,9 @@ export function registerDictionaryCodeBlockProcessor(
 			// Re-render with new entries
 			renderComponent(refreshedEntries);
 		};
+
+		// Register this mounted processor so the plugin can refresh it later
+		const unregisterRefresher = onRegisterRefresher?.(el, handleRefresh);
 
 		// Persist handler (debounced) - writes back into the markdown code block itself
 		const sectionInfo = (ctx as any)?.getSectionInfo?.(el) as { lineStart?: number; lineEnd?: number } | undefined;
@@ -413,6 +420,13 @@ export function registerDictionaryCodeBlockProcessor(
 			if (persistTimer) {
 				window.clearTimeout(persistTimer);
 				persistTimer = null;
+			}
+			if (typeof unregisterRefresher === "function") {
+				try {
+					unregisterRefresher();
+				} catch (e) {
+					console.warn("LearnLanguage: failed to unregister embedded refresher", e);
+				}
 			}
 			const root = reactRoots.get(el);
 			if (root) {

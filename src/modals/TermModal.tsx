@@ -88,19 +88,23 @@ export class TermModal extends Modal {
 			new Notice(`Asking AI for "${term}"...`);
 			const response = await this.plugin.openAIService.askForTerm(term);
 
-			if (response) {
-				new Notice("AI response applied!");
-				const sourceKey = sourceLanguage.toLowerCase();
-				return {
-					sourceTerm: (response as unknown as Record<string, unknown>)[sourceKey] as string || "",
-					type: response.type || "",
-					context: response.context || "",
-					examples: response.examples || ""
-				};
-			} else {
+			if (!response) {
 				new Notice("Failed to get AI response");
 				return null;
 			}
+			if (typeof response === "string") {
+				new Notice(response, 0);
+				return null;
+			}
+
+			new Notice("AI response applied!");
+			const sourceKey = sourceLanguage.toLowerCase();
+			return {
+				sourceTerm: (response as unknown as Record<string, unknown>)[sourceKey] as string || "",
+				type: response.type || "",
+				context: response.context || "",
+				examples: response.examples || ""
+			};
 		};
 
 		// Handle submit
@@ -118,6 +122,11 @@ export class TermModal extends Modal {
 						values
 					);
 					new Notice(`Term "${values.targetTerm}" updated!`);
+					try {
+						await this.plugin.refreshOpenUIsAfterTermUpsert();
+					} catch (e) {
+						console.warn("LearnLanguage: failed to refresh open UIs after TermModal update", e);
+					}
 				} else {
 					// Create new term
 					const file = await this.plugin.termService.createOrUpdateTermPage(values);
@@ -125,6 +134,11 @@ export class TermModal extends Modal {
 						new Notice(`Term "${values.targetTerm}" created!`);
 						// Open the new file
 						await this.app.workspace.openLinkText(file.path, "");
+						try {
+							await this.plugin.refreshOpenUIsAfterTermUpsert();
+						} catch (e) {
+							console.warn("LearnLanguage: failed to refresh open UIs after TermModal create", e);
+						}
 					}
 				}
 

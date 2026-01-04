@@ -195,12 +195,16 @@ export class TermModal extends Modal {
 					new Notice("Asking AI...");
 					const response = await this.plugin.openAIService.askForTerm(this.targetValue);
 
-					if (response) {
-						this.applyAIResponse(response);
-						new Notice("AI response applied!");
-					} else {
+					if (!response) {
 						new Notice("Failed to get AI response");
+						return;
 					}
+					if (typeof response === "string") {
+						new Notice(response, 0);
+						return;
+					}
+					this.applyAIResponse(response);
+					new Notice("AI response applied!");
 				});
 		}
 
@@ -260,6 +264,11 @@ export class TermModal extends Modal {
 					result
 				);
 				new Notice(`Term "${result.targetTerm}" updated!`);
+				try {
+					await this.plugin.refreshOpenUIsAfterTermUpsert();
+				} catch (e) {
+					console.warn("LearnLanguage: failed to refresh open UIs after TermModal update", e);
+				}
 			} else {
 				// Create new term
 				const file = await this.plugin.termService.createOrUpdateTermPage(result);
@@ -267,6 +276,11 @@ export class TermModal extends Modal {
 					new Notice(`Term "${result.targetTerm}" created!`);
 					// Open the new file
 					await this.app.workspace.openLinkText(file.path, "");
+					try {
+						await this.plugin.refreshOpenUIsAfterTermUpsert();
+					} catch (e) {
+						console.warn("LearnLanguage: failed to refresh open UIs after TermModal create", e);
+					}
 				}
 			}
 

@@ -24,6 +24,9 @@ import { registerDictionaryCodeBlockProcessor } from "./processors";
 export default class LearnLanguagePlugin extends Plugin {
 	settings: LearnLanguageSettings = DEFAULT_SETTINGS;
 
+	// Refreshers for embedded processors currently mounted in markdown documents
+	private embeddedDictionaryRefreshers = new Map<HTMLElement, () => Promise<void> | void>();
+
 	// Services
 	dictionaryService!: DictionaryService;
 	openAIService!: OpenAIService;
@@ -74,7 +77,9 @@ export default class LearnLanguagePlugin extends Plugin {
 				this.dictionaryService,
 				this.filterService,
 				this.termService,
-				() => this.askAIModal.open()
+				() => this.askAIModal.open(),
+				(el: HTMLElement, refresher: () => Promise<void> | void) =>
+					this.registerEmbeddedDictionaryRefresher(el, refresher)
 			)
 		);
 
@@ -132,6 +137,63 @@ export default class LearnLanguagePlugin extends Plugin {
 
 		// Expose global API for Dataview compatibility
 		this.exposeGlobalAPI();
+	}
+
+	/**
+	 * Register a refresher for a mounted embedded dictionary processor.
+	 * Returns an unregister function that must be called on unload.
+	 */
+	registerEmbeddedDictionaryRefresher(
+		el: HTMLElement,
+		refresher: () => Promise<void> | void
+	): () => void {
+		this.embeddedDictionaryRefreshers.set(el, refresher);
+		return () => {
+			this.embeddedDictionaryRefreshers.delete(el);
+		};
+	}
+
+	/**
+	 * Best-effort refresh after a term is created/updated.
+	 * - Invalidates dictionary cache
+	 * - Refreshes open dictionary/verbs views
+	 * - Refreshes mounted embedded dictionary processors
+	 */
+	async refreshOpenUIsAfterTermUpsert(): Promise<void> {
+		// Ensure fresh data
+		this.dictionaryService.invalidateCache();
+
+		// Refresh open views (if any)
+		const dictionaryLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_DICTIONARY);
+		const verbsLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_VERBS);
+
+		const viewRefreshes: Array<Promise<void>> = [];
+		for (const leaf of [...dictionaryLeaves, ...verbsLeaves]) {
+			const view = (leaf as any)?.view;
+			const refresh = (view as any)?.refresh;
+			if (typeof refresh === "function") {
+				try {
+					viewRefreshes.push(Promise.resolve(refresh.call(view)));
+				} catch (e) {
+					console.warn("LearnLanguage: failed to schedule view refresh", e);
+				}
+			}
+		}
+
+		// Refresh embedded processors (mounted markdown code blocks)
+		const embeddedRefreshes = Array.from(this.embeddedDictionaryRefreshers.values()).map(fn => {
+			try {
+				return Promise.resolve(fn());
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		});
+
+		// Best-effort: run all refreshes without failing the caller
+		const all = [...viewRefreshes, ...embeddedRefreshes];
+		if (all.length > 0) {
+			await Promise.allSettled(all);
+		}
 	}
 
 	onunload(): void {

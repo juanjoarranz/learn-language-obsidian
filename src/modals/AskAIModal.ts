@@ -104,6 +104,11 @@ export class AskAIModal extends Modal {
 
 			if (file) {
 				new Notice(`Term "${this.termValue}" created with AI data!`);
+				try {
+					await this.plugin.refreshOpenUIsAfterTermUpsert();
+				} catch (e) {
+					console.warn("LearnLanguage: failed to refresh open UIs after AskAI upsert", e);
+				}
 				//await this.app.workspace.openLinkText(file.path, ""); // ONLY IF WE WANT TO OPEN THE FILE
 			}
 
