@@ -183,12 +183,19 @@ export class DictionaryService {
 
 		// Get source language value using configured language name
 		const sourceLanguage = this.settings.sourceLanguage;
-		const sourceValue = this.getFieldValue(
+		let sourceValue = this.getFieldValue(
 			fm[sourceLanguage],
 			fm[sourceLanguage.toLowerCase()],
 			inlineFields[sourceLanguage],
 			inlineFields[sourceLanguage.toLowerCase()]
 		);
+
+		// Fallback: metadataCache frontmatter can lag right after create/update.
+		// If the value is still missing, parse YAML frontmatter directly from file content.
+		if (!sourceValue || sourceValue.trim() === "") {
+			const fromYaml = await this.tryReadFrontmatterString(file, sourceLanguage);
+			if (fromYaml) sourceValue = fromYaml;
+		}
 
 		return {
 			file: {
@@ -197,7 +204,7 @@ export class DictionaryService {
 				basename: file.basename,
 			},
 			targetWord: file.basename.toLowerCase(),
-			sourceWord: sourceValue.toLowerCase(),
+			sourceWord: (sourceValue || "").toLowerCase(),
 			type: this.normalizeArrayField(type),
 			context: this.normalizeArrayField(context),
 			revision,
@@ -207,6 +214,42 @@ export class DictionaryService {
 			relations: inlineFields.Relations || fm.Relations || "",
 			project: inlineFields.Project || fm.Project || "",
 		};
+	}
+
+	private async tryReadFrontmatterString(file: TFile, key: string): Promise<string> {
+		try {
+			const content = await this.app.vault.cachedRead(file);
+			const lines = content.split(/\r?\n/);
+			if (lines.length === 0) return "";
+			if (lines[0].trim() !== "---") return "";
+
+			const wanted = key;
+			const wantedLower = key.toLowerCase();
+
+			for (let i = 1; i < lines.length; i++) {
+				const line = lines[i];
+				if (line.trim() === "---") break;
+				// Skip comments/empty lines
+				if (!line || /^\s*#/.test(line)) continue;
+
+				const match = line.match(/^\s*([^:]+)\s*:\s*(.*)\s*$/);
+				if (!match) continue;
+				const k = match[1].trim();
+				if (k !== wanted && k.toLowerCase() !== wantedLower) continue;
+
+				let v = match[2] ?? "";
+				v = String(v).trim();
+				// Strip simple quotes
+				if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+					v = v.slice(1, -1).trim();
+				}
+				return v;
+			}
+
+			return "";
+		} catch {
+			return "";
+		}
 	}
 
 	/**
