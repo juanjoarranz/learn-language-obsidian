@@ -145,16 +145,29 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
 export function useTypeAhead(
 	initialValue: string = "",
 	onChange: (value: string) => void,
-	delay: number = 300
+	delay: number = 1000
 ) {
 	const normalizeExternal = (v: string) => (v === "all" ? "" : v);
 	const [inputValue, setInputValue] = useState(normalizeExternal(initialValue));
+	const [isFocused, setIsFocused] = useState(false);
+	const [restoreFocusTrigger, setRestoreFocusTrigger] = useState(0);
 	const onChangeRef = useRef(onChange);
 	const debounceTimerRef = useRef<number | null>(null);
 	const isComposingRef = useRef(false);
 	const isFocusedRef = useRef(false);
+	const ignoreBlurUntilRef = useRef(0);
 	// Keep track of the latest inputValue to avoid stale closures
 	const inputValueRef = useRef(inputValue);
+
+	// Cleanup pending timers on unmount
+	useEffect(() => {
+		return () => {
+			if (debounceTimerRef.current) {
+				window.clearTimeout(debounceTimerRef.current);
+				debounceTimerRef.current = null;
+			}
+		};
+	}, []);
 
 	// Keep the ref updated with the latest onChange
 	useEffect(() => {
@@ -184,6 +197,11 @@ export function useTypeAhead(
 		}
 		debounceTimerRef.current = window.setTimeout(() => {
 			debounceTimerRef.current = null;
+			// If user was focused when debounce fires, signal to restore focus after re-render
+			if (isFocusedRef.current) {
+				ignoreBlurUntilRef.current = Date.now() + 1000;
+				setRestoreFocusTrigger(prev => prev + 1);
+			}
 			onChangeRef.current(nextValue || "all");
 		}, delay);
 	}, [delay]);
@@ -217,10 +235,16 @@ export function useTypeAhead(
 
 	const handleFocus = useCallback(() => {
 		isFocusedRef.current = true;
+		setIsFocused(true);
 	}, []);
 
 	const handleBlur = useCallback(() => {
+		// If focus is being temporarily stolen during a debounce-triggered re-render,
+		// ignore this blur and let the component restore focus.
+		if (Date.now() < ignoreBlurUntilRef.current) return;
+
 		isFocusedRef.current = false;
+		setIsFocused(false);
 		// Commit any pending value when leaving the field.
 		// Use ref to get the latest value and avoid stale closure issues.
 		if (!isComposingRef.current) {
@@ -253,6 +277,8 @@ export function useTypeAhead(
 		handleBlur,
 		handleCompositionStart,
 		handleCompositionEnd,
-		isActive: inputValue !== ""
+		isActive: inputValue !== "",
+		isFocused,
+		restoreFocusTrigger
 	};
 }
