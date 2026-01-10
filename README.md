@@ -45,6 +45,7 @@ A flexible language learning management plugin for Obsidian that supports **any 
 - Full filtering and pagination support within the embedded view
 - Same UI and functionality as the sidebar view
 - Configure initial filters via YAML-like options
+- Optional export of the currently filtered results to a delimited `.txt` file
 
 ## Installation
 
@@ -165,6 +166,29 @@ pageSize: 25
 | `pageSize` | Entries per page | `50` |
 | `showStudy` | Show study mode toggle | `true` |
 | `showPagination` | Show pagination controls | `true` |
+| `allowExport` | Show an Export button to export filtered results | `false` |
+
+#### Export (TXT)
+
+When `allowExport: true`, an **Export** button is displayed in the embedded dictionary.
+
+Clicking **Export** opens a modal that exports the **currently filtered rows** to a delimited `.txt` file.
+
+Modal options:
+
+- **Pages**: export all pages (default) or select specific pages from the filtered result set
+- **File name**: output file name (default: `dictionary-export.txt`)
+- **Folder**: absolute folder path where the file will be saved (includes a desktop folder picker)
+- **Separator**: field separator (`|` default, or `;`)
+- **Fields**: choose which fields to export (checkboxes)
+
+Special handling:
+
+- If **Examples** is selected, exported values:
+  - Replace `<br>`/`<br/>`/`<br />` with real newlines
+  - Remove italics (both HTML `<em>/<i>` and markdown emphasis like `*text*` / `_text_`)
+
+> Note: The folder picker and writing to an absolute path require Obsidian Desktop.
 
 #### Examples
 
