@@ -4,10 +4,13 @@ import { useLearnLanguage } from "../../context";
 import { useFilters, usePagination, useFilteredEntries } from "../../hooks";
 import { TypeAheadFilter, DropdownFilter, StudyToggle } from "../filters";
 import { DictionaryTable, Pagination } from "../table";
+import { ExportCsvModal } from "../../modals/ExportCsvModal";
 
 export interface DictionaryComponentProps {
 	/** Initial entries to display */
 	entries: DictionaryEntry[];
+	/** Whether to show the Export button */
+	allowExport?: boolean;
 	/** Show the refresh button */
 	showRefresh?: boolean;
 	/** Show the study mode toggle */
@@ -31,6 +34,7 @@ export interface DictionaryComponentProps {
  */
 export function DictionaryComponent({
 	entries,
+	allowExport = false,
 	showRefresh = true,
 	showStudyMode = true,
 	showPagination = true,
@@ -40,7 +44,7 @@ export function DictionaryComponent({
 	onFiltersChange,
 	onAskAIForTerm
 }: DictionaryComponentProps) {
-	const { settings, filterService } = useLearnLanguage();
+	const { app, settings, filterService, dictionaryService } = useLearnLanguage();
 	const targetLang = settings.targetLanguage;
 	const sourceLang = settings.sourceLanguage;
 	const isFirstFiltersEmit = React.useRef(true);
@@ -218,6 +222,22 @@ export function DictionaryComponent({
 							aria-label="Refresh"
 						>
 							🔄 Refresh
+						</button>
+					)}
+					{allowExport && (
+						<button
+							className="mod-cta"
+							onClick={() => {
+								const modal = new ExportCsvModal(
+									app,
+									{ settings, filterService, dictionaryService },
+									{ filteredEntries, pageSize: pagination.pageSize }
+								);
+								modal.open();
+							}}
+							aria-label="Export"
+						>
+							Export
 						</button>
 					)}
 					{onAskAIForTerm && (

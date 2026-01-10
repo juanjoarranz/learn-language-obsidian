@@ -14,6 +14,7 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 	showStudy?: boolean;
 	showPagination?: boolean;
 	outlinksOnly?: boolean;
+	allowExport?: boolean;
 } & { explicitFilterKeys: Set<keyof FilterState> } {
 	const options: Record<string, string> = {};
 	const explicitFilterKeys = new Set<keyof FilterState>();
@@ -48,6 +49,7 @@ function parseBlockOptions(source: string): Partial<FilterState> & {
 		showStudy: options.showstudy !== "false",
 		showPagination: options.showpagination !== "false",
 		outlinksOnly: options.outlinksonly === "true" || options.lessonmode === "true",
+		allowExport: options.allowexport === "true",
 		explicitFilterKeys
 	};
 }
@@ -233,6 +235,7 @@ const reactRoots = new Map<HTMLElement, ReactMountPoint>();
  * - showPagination: Show pagination controls (default: true)
  * - outlinksOnly/lessonMode: Only show dictionary entries that are referenced
  *   (linked) in the current document. Useful for lesson notes. (default: false)
+ * - allowExport: Show an Export button to export filtered rows to a TXT file. (default: false)
  */
 export function registerDictionaryCodeBlockProcessor(
 	app: App,
@@ -403,6 +406,7 @@ export function registerDictionaryCodeBlockProcessor(
 					showStudyMode={options.showStudy !== false}
 					showPagination={options.showPagination !== false}
 					pageSize={options.pageSize || 50}
+					allowExport={options.allowExport === true}
 					initialFilters={initialFilters}
 					onRefresh={handleRefresh}
 					onFiltersChange={persistFilters}

@@ -483,6 +483,86 @@
 	border-top: 1px solid var(--background-modifier-border);
 }
 
+.ll-export-inline-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ll-export-folder-control {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.ll-export-folder-input {
+	flex: 1;
+}
+
+.ll-export-pages-select {
+	min-width: 120px;
+	min-height: 90px;
+}
+
+.ll-export-fields-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: flex-start;
+}
+
+/* Export modal alignment - force proper two-column layout */
+.ll-export-csv-modal-content .setting-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	padding: 12px 0;
+	border-bottom: none;
+	gap: 16px;
+}
+
+.ll-export-csv-modal-content .setting-item-info {
+	flex: 1;
+	min-width: 0;
+	max-width: 200px;
+}
+
+.ll-export-csv-modal-content .setting-item-control {
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	width: 200px;
+}
+
+.ll-export-csv-modal-content .setting-item-control input[type="text"] {
+	width: 100%;
+	text-align: left;
+}
+
+.ll-export-csv-modal-content .setting-item-control select:not(.ll-export-pages-select) {
+	width: auto;
+	min-width: 60px;
+}
+
+.ll-export-csv-modal-content .ll-export-folder-control {
+	flex-direction: row;
+	width: 200px;
+}
+
+.ll-export-csv-modal-content .ll-export-folder-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.ll-export-csv-modal-content .ll-export-fields-grid {
+	text-align: left;
+}
+
+.ll-export-csv-modal-content .ll-export-pages-select {
+	margin-top: 8px;
+}
+
 /* =============================================
    Settings Styles
    ============================================= */
