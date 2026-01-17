@@ -13,6 +13,7 @@ import {
 export class TermService {
 	private app: App;
 	private settings: LearnLanguageSettings;
+	private fileLocks = new Map<string, Promise<void>>();
 
 	constructor(app: App, settings: LearnLanguageSettings) {
 		this.app = app;
@@ -87,23 +88,23 @@ export class TermService {
 			const newFile = await this.app.vault.create(fullFilePath, fileContent);
 			console.log("File created:", fullFilePath);
 
-			// Update inline fields sequentially to avoid race conditions with vault.process()
+			// Update inline fields sequentially (lock protects against concurrent writes)
 			if (term.type) {
-				await this.updateInlineFieldValue(fullFilePath, "Type", term.type);
+				await this.updateInlineFieldValue(fullFilePath, "Type", term.type, false);
 			}
 			if (term.context) {
-				await this.updateInlineFieldValue(fullFilePath, "Context", term.context);
+				await this.updateInlineFieldValue(fullFilePath, "Context", term.context, false);
 			}
 			if (term.rating) {
-				await this.updateInlineFieldValue(fullFilePath, "Rating", term.rating);
+				await this.updateInlineFieldValue(fullFilePath, "Rating", term.rating, false);
 			}
 			if (term.examples) {
-				await this.updateInlineFieldValue(fullFilePath, "Examples", term.examples);
+				await this.updateInlineFieldValue(fullFilePath, "Examples", term.examples, false);
 			}
 
-			// Update frontmatter
+			// Update frontmatter (do not clear existing values)
 			if (term.sourceTerm) {
-				await this.storeFrontmatterProperty(fullFilePath, this.settings.sourceLanguage, term.sourceTerm);
+				await this.storeFrontmatterProperty(fullFilePath, this.settings.sourceLanguage, term.sourceTerm, false);
 			}
 
 			new Notice(`Successfully created the note file: ${term.targetTerm}`, 10000);
@@ -142,33 +143,34 @@ export class TermService {
 		// Update Type only if empty
 		if ((!currentType || currentType === undefined || currentType === "") && term.type) {
 			console.log(`Updating Type for ${term.targetTerm}`);
-			await this.updateInlineFieldValue(filePath, "Type", term.type);
+			await this.updateInlineFieldValue(filePath, "Type", term.type, false);
 			termUpdated = true;
 		}
 
 		// Update Context only if empty
 		if ((!currentContext || currentContext === undefined || currentContext === "") && term.context) {
-			await this.updateInlineFieldValue(filePath, "Context", term.context);
+			await this.updateInlineFieldValue(filePath, "Context", term.context, false);
 			termUpdated = true;
 		}
 
 		// Update Rating only if empty
 		if ((!currentRating || currentRating === undefined || currentRating === "") && term.rating) {
-			await this.updateInlineFieldValue(filePath, "Rating", term.rating);
+			await this.updateInlineFieldValue(filePath, "Rating", term.rating, false);
 			termUpdated = true;
 		}
 
 		// Update Examples: add new examples if less than 3 exist
-		if (term.examples) {
+		const normalizedExamples = typeof term.examples === "string" ? term.examples.trim() : "";
+		if (normalizedExamples) {
 			const currentExamplesCount = currentExamples ? currentExamples.split("<br>").length : 0;
 			console.log("currentExamplesCount", currentExamplesCount);
 
 			if (!currentExamples || currentExamples === undefined || currentExamples === "" || currentExamplesCount < 3) {
 				if (currentExamplesCount === 0) {
-					await this.updateInlineFieldValue(filePath, "Examples", term.examples);
+					await this.updateInlineFieldValue(filePath, "Examples", normalizedExamples, false);
 				} else {
-					const updatedExamples = `${currentExamples}<br>${term.examples}`;
-					await this.updateInlineFieldValue(filePath, "Examples", updatedExamples);
+					const updatedExamples = `${currentExamples}<br>${normalizedExamples}`;
+					await this.updateInlineFieldValue(filePath, "Examples", updatedExamples, false);
 				}
 				termUpdated = true;
 			}
@@ -192,26 +194,26 @@ export class TermService {
 		context?: string;
 		examples?: string;
 		rating?: AITermRating;
-	}): Promise<void> {
+	}, allowClear: boolean = false): Promise<void> {
 		const filePath = file.path;
 
 		// Update inline fields sequentially to avoid race conditions with vault.process()
 		if (term.type !== undefined) {
-			await this.updateInlineFieldValue(filePath, "Type", term.type);
+			await this.updateInlineFieldValue(filePath, "Type", term.type, allowClear);
 		}
 		if (term.context !== undefined) {
-			await this.updateInlineFieldValue(filePath, "Context", term.context);
+			await this.updateInlineFieldValue(filePath, "Context", term.context, allowClear);
 		}
 		if (term.rating !== undefined) {
-			await this.updateInlineFieldValue(filePath, "Rating", term.rating);
+			await this.updateInlineFieldValue(filePath, "Rating", term.rating, allowClear);
 		}
 		if (term.examples !== undefined) {
-			await this.updateInlineFieldValue(filePath, "Examples", term.examples);
+			await this.updateInlineFieldValue(filePath, "Examples", term.examples, allowClear);
 		}
 
 		// Update frontmatter
 		if (term.sourceTerm !== undefined) {
-			await this.storeFrontmatterProperty(filePath, this.settings.sourceLanguage, term.sourceTerm);
+			await this.storeFrontmatterProperty(filePath, this.settings.sourceLanguage, term.sourceTerm, allowClear);
 		}
 	}
 
@@ -251,29 +253,38 @@ export class TermService {
 	 * Update a single inline field in a file (public API)
 	 * Used by UI components to update individual fields like Revision or Rating
 	 */
-	async updateField(filePath: string, fieldName: string, fieldValue: string): Promise<void> {
-		await this.updateInlineFieldValue(filePath, fieldName, fieldValue);
+	async updateField(filePath: string, fieldName: string, fieldValue: string, allowClear: boolean = true): Promise<void> {
+		await this.updateInlineFieldValue(filePath, fieldName, fieldValue, allowClear);
 	}
 
 	/**
 	 * Update inline field in file
 	 * Based on legacy updateInlineFieldValue()
 	 */
-	private async updateInlineFieldValue(filePath: string, fieldName: string, fieldValue: string): Promise<void> {
+	private async updateInlineFieldValue(filePath: string, fieldName: string, fieldValue: string, allowClear: boolean): Promise<void> {
 		const vaultFile = this.app.vault.getAbstractFileByPath(filePath);
 		if (!(vaultFile instanceof TFile)) {
 			console.error(`File not found: ${filePath}`);
 			return;
 		}
 
-		await this.app.vault.process(vaultFile, (data) => {
-			// Legacy regex: matches field at start of line, optional space, ::, then anything until newline
-			const re = new RegExp(`^${fieldName}\\s?::.*`, "m");
-			const match = data.match(re);
-			if (match) {
-				data = data.replace(re, `${fieldName}:: ${fieldValue}`);
-			}
-			return data;
+		const normalized = fieldValue == null ? "" : String(fieldValue).trim();
+		const shouldSkipClear = !allowClear && normalized.length === 0;
+
+		await this.withFileLock(filePath, async () => {
+			await this.app.vault.process(vaultFile, (data) => {
+				// Legacy regex: matches field at start of line, optional space, ::, then anything until newline
+				const re = new RegExp(`^${fieldName}\\s?::.*`, "m");
+				const match = data.match(re);
+				if (match) {
+					if (shouldSkipClear) {
+						const currentValue = match[0].replace(new RegExp(`^${fieldName}\\s?::`, "i"), "").trim();
+						if (currentValue.length > 0) return data;
+					}
+					data = data.replace(re, `${fieldName}:: ${normalized}`);
+				}
+				return data;
+			});
 		});
 	}
 
@@ -281,16 +292,45 @@ export class TermService {
 	 * Store frontmatter property
 	 * Based on legacy storeFrontmatterProperty()
 	 */
-	private async storeFrontmatterProperty(filePath: string, key: string, value: string): Promise<void> {
+	private async storeFrontmatterProperty(filePath: string, key: string, value: string, allowClear: boolean): Promise<void> {
 		const vaultFile = this.app.vault.getAbstractFileByPath(filePath);
 		if (!(vaultFile instanceof TFile)) {
 			console.error(`File not found: ${filePath}`);
 			return;
 		}
 
-		await this.app.fileManager.processFrontMatter(vaultFile, (frontmatter) => {
-			frontmatter[key] = value;
+		const normalized = value == null ? "" : String(value).trim();
+		const shouldSkipClear = !allowClear && normalized.length === 0;
+
+		await this.withFileLock(filePath, async () => {
+			await this.app.fileManager.processFrontMatter(vaultFile, (frontmatter) => {
+				if (shouldSkipClear) {
+					const current = frontmatter[key];
+					if (typeof current === "string" && current.trim().length > 0) return;
+					if (current != null && typeof current !== "string") return;
+				}
+				frontmatter[key] = normalized;
+			});
 		});
+	}
+
+	private async withFileLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
+		const previous = this.fileLocks.get(filePath) || Promise.resolve();
+		let release: () => void = () => undefined;
+		const next = new Promise<void>(resolve => {
+			release = resolve;
+		});
+		const chained = previous.then(() => next);
+		this.fileLocks.set(filePath, chained);
+		try {
+			const result = await previous.then(fn);
+			return result;
+		} finally {
+			release();
+			if (this.fileLocks.get(filePath) === chained) {
+				this.fileLocks.delete(filePath);
+			}
+		}
 	}
 
 	/**

@@ -119,7 +119,8 @@ export class TermModal extends Modal {
 					// Update existing term
 					await this.plugin.termService.updateTermFile(
 						this.app.vault.getAbstractFileByPath(this.existingFilePath) as any,
-						values
+						values,
+						true
 					);
 					new Notice(`Term "${values.targetTerm}" updated!`);
 					try {

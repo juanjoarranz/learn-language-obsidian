@@ -416,7 +416,7 @@ export default class LearnLanguagePlugin extends Plugin {
 						type: updates.type,
 						context: updates.context,
 						examples: updates.examples,
-					});
+					}, true);
 				}
 			},
 			askAI: (term) => this.openAIService.askForTerm(term),
