@@ -81,6 +81,9 @@ export class TermService {
 			fileContent = this.getDefaultTermContent();
 		}
 
+		// Inject values directly into content string to avoid multiple file writes and race conditions
+		fileContent = this.injectTermValues(fileContent, term);
+
 		const fullFilePath = `${this.settings.dictionaryFolder}/${term.targetTerm}.md`;
 
 		try {
@@ -331,6 +334,49 @@ export class TermService {
 				this.fileLocks.delete(filePath);
 			}
 		}
+	}
+
+	/**
+	 * Inject term values directly into content string
+	 */
+	private injectTermValues(content: string, term: {
+		targetTerm: string;
+		sourceTerm?: string;
+		type?: string;
+		context?: string;
+		examples?: string;
+		rating?: AITermRating;
+	}): string {
+		let result = content;
+
+		// Helper to replace inline field
+		const replaceInline = (key: string, value: string) => {
+			if (!value) return;
+			// Matches "Key::" optionally followed by whitespace, then anything until newline
+			const regex = new RegExp(`^${key}\\s*::.*$`, "m");
+			if (result.match(regex)) {
+				result = result.replace(regex, `${key}:: ${value}`);
+			}
+		};
+
+		// Helper to replace frontmatter field
+		const replaceFrontmatter = (key: string, value: string) => {
+			if (!value) return;
+			// Matches "Key:" at start of line (likely in frontmatter)
+			const regex = new RegExp(`^${key}:.*$`, "m");
+			if (result.match(regex)) {
+				result = result.replace(regex, `${key}: ${value}`);
+			}
+		};
+
+		if (term.type) replaceInline("Type", term.type);
+		if (term.context) replaceInline("Context", term.context);
+		if (term.rating) replaceInline("Rating", term.rating);
+		if (term.examples) replaceInline("Examples", term.examples);
+
+		if (term.sourceTerm) replaceFrontmatter(this.settings.sourceLanguage, term.sourceTerm);
+
+		return result;
 	}
 
 	/**

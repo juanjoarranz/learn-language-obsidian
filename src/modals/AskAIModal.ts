@@ -92,6 +92,15 @@ export class AskAIModal extends Modal {
 			const sourceKey = sourceLanguage.toLowerCase();
 			const sourceTerm = typeof ai[sourceKey] === "string" ? (ai[sourceKey] as string) : undefined;
 
+      console.log("JAA createOrUpdateTermPage with the object:", `{
+				targetTerm: ${this.termValue},
+				sourceTerm: ${sourceTerm},
+				type: ${ai.type},
+				context: ${ai.context},
+				examples: ${ai.examples},
+				rating: ${ai.rating}
+			}`);
+
 			// Create the term with AI response
 			const file = await this.plugin.termService.createOrUpdateTermPage({
 				targetTerm: this.termValue,
@@ -101,6 +110,23 @@ export class AskAIModal extends Modal {
 				examples: ai.examples,
 				rating: ai.rating
 			});
+
+      const debugging = true;
+			if (file && debugging) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				const frontmatter = cache?.frontmatter || {};
+
+				const content = await this.app.vault.cachedRead(file);
+				const inlineProperties: Record<string, string> = {};
+				content.split(/\r?\n/).forEach(line => {
+					const match = line.match(/^([A-Za-z_-]+)::\s*(.*)$/);
+					if (match) {
+						inlineProperties[match[1]] = match[2].trim();
+					}
+				});
+
+				console.log("JAA created/updated term file with:", `frontmatter: ${JSON.stringify(frontmatter, null, 2)} and inline properties: ${JSON.stringify(inlineProperties, null, 2)}`);
+			}
 
 			if (file) {
 				new Notice(`Term "${this.termValue}" created with AI data!`);
