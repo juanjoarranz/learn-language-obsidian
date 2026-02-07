@@ -57,10 +57,13 @@ export function usePagination(initialPageSize: number = 100) {
 	}, []);
 
 	const nextPage = useCallback(() => {
-		setPagination(prev => ({
-			...prev,
-			pageStart: Math.min(prev.pageStart + prev.pageSize, prev.outputCount - prev.pageSize)
-		}));
+		setPagination(prev => {
+			const newStart = prev.pageStart + prev.pageSize;
+			return {
+				...prev,
+				pageStart: newStart < prev.outputCount ? newStart : prev.pageStart
+			};
+		});
 	}, []);
 
 	const prevPage = useCallback(() => {
