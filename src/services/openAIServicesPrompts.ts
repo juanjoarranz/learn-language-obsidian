@@ -39,8 +39,10 @@ export const getAdditionalInstructionsPrompt = (
         "type": <valor tipo de término por ejemplo #pronom/personnel/réfléchi o si es multiple pon los valores separadods por coma y espacio por ejemplo #nom/commun , #nom/masculin>,
         "context": <valor del tipo del contexto por ejemplo #travel/transport>,
         "rating": <uno de los valores: "#⭐⭐⭐" o "#⭐⭐" o "#⭐", donde #⭐⭐⭐ significa que el término es muy común y utilizado y #⭐ significa que el término es poco utilizado o poco común>,
-        "examples": <ejemplo1<br>ejemplo2<br>ejemplo3>
+        "examples": ejemplo1<br>ejemplo2<br>ejemplo3
       }
+
+      Es muy importante que cada ejemplo esté separado por los caracteres "<br>" para que posteriormente pueda dividirlos correctamente. No utilices ningún otro separador para los ejemplos, sólo "<br>".
 
       No envuelvas la respuesta json con el calificador triple coma invertida-json. Limítate a devolver un string json con el esquema especificado anteriormente.
 
