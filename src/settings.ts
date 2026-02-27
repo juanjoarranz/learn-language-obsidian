@@ -307,18 +307,18 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 				cls: "ll-status-ok"
 			});
 
-			// Show assistant config info
+			// Show responses config info
 			const config = this.plugin.openAIService.getAssistantConfig();
-			if (config?.assistantId) {
+			if (config?.vectorStoreId) {
 				openAIStatus.createEl("p", {
-					text: `Assistant ID: ${config.assistantId.substring(0, 20)}...`,
+					text: `Vector Store ID: ${config.vectorStoreId.substring(0, 20)}...`,
 					cls: "ll-status-info"
 				});
 			}
 
-			if (config?.threadId) {
+			if (config?.previousResponseId) {
 				openAIStatus.createEl("p", {
-					text: `Thread ID: ${config.threadId.substring(0, 20)}...`,
+					text: `Previous Response ID: ${config.previousResponseId.substring(0, 20)}...`,
 					cls: "ll-status-info"
 				});
 			}
@@ -357,9 +357,9 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 
 		new Setting(openAIActions)
 			.setName("Reset conversation")
-			.setDesc("Start a new conversation thread with the AI assistant")
+			.setDesc("Start a new conversation with the AI assistant")
 			.addButton(button => button
-				.setButtonText("Reset Thread")
+				.setButtonText("Reset Conversation")
 				.onClick(async () => {
 					if (!this.plugin.settings.openAIApiKey) {
 						new Notice("Please configure OpenAI API key first");
@@ -368,12 +368,12 @@ export class LearnLanguageSettingTab extends PluginSettingTab {
 
 					new Notice("Resetting conversation...");
 					try {
-						await this.plugin.openAIService.resetThread();
+						await this.plugin.openAIService.resetConversation();
 						await this.plugin.saveSettings();
 						new Notice("Conversation reset!");
 						this.display();
 					} catch (error) {
-						new Notice("Failed to reset thread. Check console.");
+						new Notice("Failed to reset conversation. Check console.");
 						console.error(error);
 					}
 				}));

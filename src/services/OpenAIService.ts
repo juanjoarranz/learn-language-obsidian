@@ -3,19 +3,11 @@ import {
 	LearnLanguageSettings,
 	AITermResponse
 } from "../types";
-import {
-  getInitialQuestionPrompt,
-  getAdditionalInstructionsPrompt,
-  getAssistantInstructions } from "./openAIServicesPrompts";
+import { getResponsesInstructions } from "./openAIServicesPrompts";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
-const OPENAI_MODEL = "gpt-4o"; // https://chatgpt.com/c/69466c48-990c-8333-95ff-be44e310932b
-//const OPENAI_MODEL = "gpt-5.2-pro";
+const OPENAI_MODEL = "gpt-4o";
 
-/**
- * OpenAIService - Handles all OpenAI API interactions
- * Based on logic from dvViews/openAI/quickAdd/createOrUpdateTerm.js
- */
 export class OpenAIService {
 	private app: App;
 	private settings: LearnLanguageSettings;
@@ -27,24 +19,14 @@ export class OpenAIService {
 		this.saveSettingsCallback = saveSettingsCallback;
 	}
 
-	/**
-	 * Update settings reference
-	 */
 	updateSettings(settings: LearnLanguageSettings): void {
 		this.settings = settings;
 	}
 
-	/**
-	 * Check if OpenAI is configured
-	 */
 	isConfigured(): boolean {
 		return !!this.settings.openAIApiKey;
 	}
 
-	/**
-	 * Ask AI for term translation and classification
-	 * Returns AITermResponse on success, string on error (to display as notice), or null on failure
-	 */
 	async askForTerm(term: string): Promise<AITermResponse | string | null> {
 		if (!this.isConfigured()) {
 			console.error("OpenAI API key not configured");
@@ -52,129 +34,55 @@ export class OpenAIService {
 		}
 
 		try {
-			console.log("assistantConfig:", this.assistantConfig);
+			let { termsFileId, contextFileId, vectorStoreId } = this.assistantConfig;
+			const shouldSyncFiles =
+				this.assistantConfig.updateTermsStructure ||
+				this.assistantConfig.updateContextStructure ||
+				!termsFileId ||
+				!contextFileId ||
+				!vectorStoreId;
 
-			let {
-				updateAssistantId,
-				isInitialQuestion,
-				withAdditionalInstructions
-			} = this.assistantConfig;
-
-			let termsFileId: string = this.assistantConfig.termsFileId || "";
-			let contextFileId: string = this.assistantConfig.contextFileId || "";
-			let assistantId: string = this.assistantConfig.assistantId || "";
-			let threadId: string = this.assistantConfig.threadId || "";
-
-			// Check if we need to recreate assistant (when updateAssistantId flag is true)
-			if (updateAssistantId || !assistantId) {
-				console.log("Creating new assistant...");
-
-				// Upload files if needed
-				if (this.assistantConfig.updateTermsStructure || !termsFileId) {
-					const newTermsFileId = await this.uploadFile(this.settings.termTypesFile);
-					termsFileId = newTermsFileId || "";
-					this.assistantConfig.termsFileId = termsFileId;
-				}
-
-				if (this.assistantConfig.updateContextStructure || !contextFileId) {
-					const newContextFileId = await this.uploadFile(this.settings.contextTypesFile);
-					contextFileId = newContextFileId || "";
-					this.assistantConfig.contextFileId = contextFileId;
-				}
-
-				const newAssistantId = await this.createAssistant(termsFileId, contextFileId);
-
-        if (!newAssistantId) {
-          console.error("Failed to create assistant");
-          return null;
-        }
-
-				assistantId = newAssistantId || "";
-				this.assistantConfig.assistantId = assistantId;
-				this.assistantConfig.updateAssistantId = false;
-				this.assistantConfig.updateTermsStructure = false;
-				this.assistantConfig.updateContextStructure = false;
-				this.assistantConfig.isInitialQuestion = true;
-				this.assistantConfig.withAdditionalInstructions = true;
-
-				await this.saveAssistantConfig();
-
-				isInitialQuestion = true;
-				withAdditionalInstructions = true;
+			if (shouldSyncFiles) {
+				await this.syncClassificationFilesWithOpenAI();
+				termsFileId = this.assistantConfig.termsFileId || "";
+				contextFileId = this.assistantConfig.contextFileId || "";
+				vectorStoreId = this.assistantConfig.vectorStoreId || "";
 			}
 
-			// Create new thread if needed (isInitialQuestion flag)
-			if (isInitialQuestion || !threadId) {
-				console.log("Creating new thread...");
-				const fileIds = [termsFileId, contextFileId].filter(id => id.length > 0);
-				const newThreadId = await this.createThreadWithRetry(fileIds, 3000);
-				if (!newThreadId) {
-					console.error("Failed to create thread");
-					return null;
-				}
-
-				threadId = newThreadId;
-				this.assistantConfig.threadId = threadId;
-				this.assistantConfig.isInitialQuestion = false;
-
-				// Send initial question
-				await this.sendInitialQuestion(assistantId, threadId, termsFileId, contextFileId);
-				await this.sleep(2000);
-
-				await this.saveAssistantConfig();
-			}
-
-			// Send additional instructions if needed
-			if (withAdditionalInstructions) {
-				console.log("Sending additional instructions...");
-				await this.sendAdditionalInstructions(assistantId, threadId, termsFileId, contextFileId);
-
-				this.assistantConfig.withAdditionalInstructions = false;
-				await this.saveAssistantConfig();
-
-				await this.sleep(2000);
-			}
-
-			// Now ask the actual question
-			console.log("Asking for term:", term);
-			const response = await this.askAssistant(assistantId, threadId, term);
-
-			if (!response) {
-				console.error("No response from assistant");
+			if (!termsFileId || !contextFileId || !vectorStoreId) {
+				console.error("Missing OpenAI classification resources.");
 				return null;
 			}
 
-			// Handle rate limit error - retry with new thread
-			if (response === "rate_limit_exceeded") {
-				console.log("Rate limit exceeded, creating new thread and retrying...");
+			const sourceLanguage = this.settings.sourceLanguage || "Spanish";
+			const targetLanguage = this.settings.targetLanguage || "French";
+			const termTypesFileName = "TermTypes.txt";
+			const contextTypesFileName = "ContextTypes.txt";
+			const instructions = getResponsesInstructions(
+				sourceLanguage,
+				targetLanguage,
+				termTypesFileName,
+				contextTypesFileName
+			);
 
-				const fileIds = [termsFileId, contextFileId].filter(id => id.length > 0);
-				const retryThreadId = await this.createThreadWithRetry(fileIds);
-				if (!retryThreadId) return null;
+			const result = await this.callResponsesAPI(
+				instructions,
+				term,
+				vectorStoreId,
+				this.assistantConfig.previousResponseId || undefined,
+				sourceLanguage
+			);
 
-				threadId = retryThreadId;
-				this.assistantConfig.threadId = threadId;
-				await this.saveAssistantConfig();
-
-				await this.sendInitialQuestion(assistantId, threadId, termsFileId, contextFileId);
-				await this.sleep(2000);
-
-				await this.sendAdditionalInstructions(assistantId, threadId, termsFileId, contextFileId);
-				await this.sleep(2000);
-
-				const retryResponse = await this.askAssistant(assistantId, threadId, term);
-				if (!retryResponse || retryResponse === "rate_limit_exceeded") {
-					return null;
-				}
-
-				return this.parseJsonResponse(retryResponse);
+			if (!result) {
+				return null;
 			}
 
-			return this.parseJsonResponse(response);
+			this.assistantConfig.previousResponseId = result.responseId;
+			await this.saveAssistantConfig();
 
+			return this.parseJsonResponse(result.responseText);
 		} catch (error) {
 			console.error("Error asking AI for term:", error);
-			// Return error message as string to display in Notice
 			if (error instanceof Error) {
 				return error.message;
 			}
@@ -182,9 +90,6 @@ export class OpenAIService {
 		}
 	}
 
-	/**
-	 * Upload a file to OpenAI
-	 */
 	async uploadFile(filePath: string, purpose: string = "assistants"): Promise<string | null> {
 		const file = this.app.vault.getAbstractFileByPath(filePath);
 		if (!(file instanceof TFile)) {
@@ -209,7 +114,11 @@ export class OpenAIService {
 			});
 
 			const data = await response.json();
-			console.log("File uploaded:", data);
+			if (!response.ok || data.error) {
+				console.error("Error uploading file:", data.error || data);
+				return null;
+			}
+
 			return data.id || null;
 		} catch (error) {
 			console.error("Error uploading file:", error);
@@ -217,9 +126,6 @@ export class OpenAIService {
 		}
 	}
 
-	/**
-	 * Delete a file from OpenAI
-	 */
 	async deleteFile(fileId: string): Promise<boolean> {
 		try {
 			await requestUrl({
@@ -236,96 +142,78 @@ export class OpenAIService {
 		}
 	}
 
-	/**
-	 * Reset thread (create new conversation)
-	 */
-	async resetThread(): Promise<void> {
-		// const fileIds = [
-		// 	this.assistantConfig.termsFileId,
-		// 	this.assistantConfig.contextFileId
-		// ].filter(Boolean);
-
-		//const threadId = await this.createThread(fileIds);
-		//if (threadId) {
-			this.assistantConfig.threadId = "threadId to be created during next Term ask";
-			this.assistantConfig.isInitialQuestion = true;
-			this.assistantConfig.withAdditionalInstructions = true;
-			await this.saveAssistantConfig();
-		//}
-
-    console.log("Thread reset completed. Updated assistantConfig:", this.assistantConfig );
-	}
-
-	/**
-	 * Force refresh - recreate assistant and thread. Not Used at the moment.
-	 */
-	async forceRefresh(): Promise<void> {
-		this.assistantConfig.updateAssistantId = true;
-		this.assistantConfig.isInitialQuestion = true;
-		this.assistantConfig.withAdditionalInstructions = true;
+	async resetConversation(): Promise<void> {
+		this.assistantConfig.previousResponseId = "";
 		await this.saveAssistantConfig();
 	}
 
-	/**
-	 * Sync types files with OpenAI - re-upload term and context files
-	 */
+	async forceRefresh(): Promise<void> {
+		this.assistantConfig.updateTermsStructure = true;
+		this.assistantConfig.updateContextStructure = true;
+		this.assistantConfig.previousResponseId = "";
+		await this.saveAssistantConfig();
+	}
+
 	async syncClassificationFilesWithOpenAI(): Promise<void> {
-		// Delete old files if they exist
+		if (this.assistantConfig.vectorStoreId) {
+			await this.deleteVectorStore(this.assistantConfig.vectorStoreId);
+		}
+
 		if (this.assistantConfig.termsFileId) {
 			await this.deleteFile(this.assistantConfig.termsFileId);
 		}
+
 		if (this.assistantConfig.contextFileId) {
 			await this.deleteFile(this.assistantConfig.contextFileId);
 		}
 
-		// Upload new files
 		const termsFileId = await this.uploadFile(this.settings.termTypesFile);
 		const contextFileId = await this.uploadFile(this.settings.contextTypesFile);
 
-		// Update config
-		this.assistantConfig.termsFileId = termsFileId || "";
-		this.assistantConfig.contextFileId = contextFileId || "";
+		if (!termsFileId || !contextFileId) {
+			throw new Error("Unable to upload classification files to OpenAI");
+		}
+
+		const vectorStoreName = `learn-language-${Date.now()}`;
+		const vectorStoreId = await this.createVectorStore(vectorStoreName);
+		if (!vectorStoreId) {
+			throw new Error("Unable to create OpenAI vector store");
+		}
+
+		const termsAdded = await this.addFileToVectorStore(vectorStoreId, termsFileId);
+		const contextAdded = await this.addFileToVectorStore(vectorStoreId, contextFileId);
+
+		if (!termsAdded || !contextAdded) {
+			throw new Error("Unable to index files in OpenAI vector store");
+		}
+
+		this.assistantConfig.termsFileId = termsFileId;
+		this.assistantConfig.contextFileId = contextFileId;
+		this.assistantConfig.vectorStoreId = vectorStoreId;
+		this.assistantConfig.previousResponseId = "";
 		this.assistantConfig.updateTermsStructure = false;
 		this.assistantConfig.updateContextStructure = false;
-		this.assistantConfig.updateAssistantId = true; // Need to recreate assistant with new files
-		this.assistantConfig.isInitialQuestion = true;
-		this.assistantConfig.withAdditionalInstructions = true;
 
 		await this.saveAssistantConfig();
 		console.log("Classification files synced with OpenAI:", {
 			termsFileId,
-			contextFileId
+			contextFileId,
+			vectorStoreId
 		});
 	}
 
-	/**
-	 * Get current assistant config (for display in settings)
-	 */
 	getAssistantConfig(): typeof this.settings.askTermAssistant {
 		return this.assistantConfig;
 	}
 
-  // ===================================
-  // Private helper methods
-  // ===================================
-
-	/**
-	 * Get assistant config from settings
-	 */
 	private get assistantConfig() {
 		return this.settings.askTermAssistant;
 	}
 
-	/**
-	 * Save assistant config (saves entire settings)
-	 */
 	private async saveAssistantConfig(): Promise<void> {
 		await this.saveSettingsCallback();
 	}
 
-	/**
-	 * Parse JSON response from assistant
-	 */
 	private parseJsonResponse(response: string): AITermResponse | null {
 		try {
 			return JSON.parse(response) as AITermResponse;
@@ -335,298 +223,192 @@ export class OpenAIService {
 		}
 	}
 
-	/**
-	 * Create OpenAI Assistant
-	 */
-	private async createAssistant(termsFileId: string, contextFileId: string): Promise<string | null> {
-		const termTypesFileName = "TermTypes.txt";
-		const contextTypesFileName = "ContextTypes.txt";
-    const targetLanguage = this.settings.targetLanguage || "French";
-    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
-
-    const instructions = getAssistantInstructions(
-      sourceLanguage,
-      targetLanguage,
-      termsFileId,
-      contextFileId,
-      termTypesFileName,
-      contextTypesFileName);
-
+	private async createVectorStore(name: string): Promise<string | null> {
 		try {
-			const response = await fetch(`${OPENAI_BASE_URL}/assistants`, {
+			const response = await fetch(`${OPENAI_BASE_URL}/vector_stores`, {
 				method: "POST",
 				headers: {
 					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
 					"Content-Type": "application/json",
-					"OpenAI-Beta": "assistants=v2",
 				},
-				body: JSON.stringify({
-					model: OPENAI_MODEL,
-					instructions,
-					tools: [{ type: "file_search" }]
-				}),
+				body: JSON.stringify({ name }),
 			});
 
 			const data = await response.json();
-
-			// Handle API error responses
-			if (data.error) {
-				const errorMessage = data.error.message || "Unknown error";
-				console.error("OpenAI API Error:", data.error);
-				throw new Error(errorMessage);
+			if (!response.ok || data.error) {
+				console.error("Error creating vector store:", data.error || data);
+				return null;
 			}
-
-			console.log("Assistant created:", data);
 
 			return data.id || null;
 		} catch (error) {
-			console.error("Error creating assistant:", error);
-			throw error;
-		}
-	}
-
-	/**
-	 * Create a new thread with attached files
-	 */
-	private async createThread(fileIds: string[]): Promise<string | { message: string } | null> {
-		const attachments = fileIds.map(id => ({
-			file_id: id,
-			tools: [{ type: "file_search" }]
-		}));
-
-		try {
-			const response = await fetch(`${OPENAI_BASE_URL}/threads`, {
-				method: "POST",
-				headers: {
-					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-					"Content-Type": "application/json",
-					"OpenAI-Beta": "assistants=v2",
-				},
-				body: JSON.stringify({
-					messages: [{
-						role: "user",
-						content: "Consulta los archivos adjuntos para responder.",
-						attachments
-					}]
-				}),
-			});
-
-			const data = await response.json();
-
-			if (data.error) {
-				const errorMessage = data.error.message || "Unknown error";
-				console.error("OpenAI API Error:", errorMessage);
-				return data.error;
-			}
-
-			console.log("Thread created:", data);
-			return data.id || null;
-
-		} catch (error) {
-			console.error("Error creating thread:", error);
+			console.error("Error creating vector store:", error);
 			return null;
 		}
 	}
 
-	/**
-	 * Create a thread and (if needed) retry once after a short delay.
-	 * Returns the thread id on success, otherwise null.
-	 */
-	private async createThreadWithRetry(fileIds: string[], retryDelayMs: number = 3000): Promise<string | null> {
-		const threadResponse = await this.createThread(fileIds);
-		if (typeof threadResponse === "string" && threadResponse.length > 0) {
-			return threadResponse;
+	private async addFileToVectorStore(vectorStoreId: string, fileId: string): Promise<boolean> {
+		try {
+			const response = await fetch(`${OPENAI_BASE_URL}/vector_stores/${vectorStoreId}/files`, {
+				method: "POST",
+				headers: {
+					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ file_id: fileId }),
+			});
+
+			const data = await response.json();
+			if (!response.ok || data.error) {
+				console.error("Error adding file to vector store:", data.error || data);
+				return false;
+			}
+
+			return true;
+		} catch (error) {
+			console.error("Error adding file to vector store:", error);
+			return false;
+		}
+	}
+
+	private async deleteVectorStore(vectorStoreId: string): Promise<boolean> {
+		try {
+			const response = await fetch(`${OPENAI_BASE_URL}/vector_stores/${vectorStoreId}`, {
+				method: "DELETE",
+				headers: {
+					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
+				},
+			});
+
+			if (!response.ok) {
+				const data = await response.json();
+				console.error("Error deleting vector store:", data?.error || data);
+				return false;
+			}
+
+			return true;
+		} catch (error) {
+			console.error("Error deleting vector store:", error);
+			return false;
+		}
+	}
+
+	private async callResponsesAPI(
+		instructions: string,
+		userMessage: string,
+		vectorStoreId: string,
+		previousResponseId: string | undefined,
+		sourceLanguage: string
+	): Promise<{ responseText: string; responseId: string } | null> {
+		const sourceLanguageKey = sourceLanguage.toLowerCase();
+		const schema = {
+			type: "object",
+			properties: {
+				[sourceLanguageKey]: { type: "string" },
+				type: { type: "string" },
+				context: { type: "string" },
+				rating: { type: "string", enum: ["#⭐⭐⭐", "#⭐⭐", "#⭐"] },
+				examples: { type: "string" }
+			},
+			required: [sourceLanguageKey, "type", "context", "rating", "examples"],
+			additionalProperties: false
+		};
+
+		const body: Record<string, unknown> = {
+			model: OPENAI_MODEL,
+			instructions,
+			input: [
+				{
+					role: "user",
+					content: userMessage
+				}
+			],
+			tools: [
+				{
+					type: "file_search",
+					vector_store_ids: [vectorStoreId]
+				}
+			],
+			text: {
+				format: {
+					type: "json_schema",
+					name: "term_classification",
+					strict: true,
+					schema
+				}
+			},
+			store: true
+		};
+
+		if (previousResponseId) {
+			body.previous_response_id = previousResponseId;
 		}
 
-		if (threadResponse && typeof threadResponse === "object" && "message" in threadResponse) {
-			console.error("Failed to create thread", (threadResponse as { message: string }).message);
+		const response = await fetch(`${OPENAI_BASE_URL}/responses`, {
+			method: "POST",
+			headers: {
+				"Authorization": `Bearer ${this.settings.openAIApiKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(body),
+		});
+
+		const data = await response.json();
+		if (!response.ok || data.error) {
+			const errorMessage = data?.error?.message || "OpenAI Responses API error";
+			throw new Error(errorMessage);
 		}
 
-		await this.sleep(retryDelayMs);
-		const retryThreadResponse = await this.createThread(fileIds);
-		if (typeof retryThreadResponse === "string" && retryThreadResponse.length > 0) {
-			return retryThreadResponse;
+		const outputText = this.extractResponseText(data);
+		if (!outputText) {
+			console.error("No output text in Responses API result:", data);
+			return null;
 		}
 
-		if (retryThreadResponse && typeof retryThreadResponse === "object" && "message" in retryThreadResponse) {
-			console.error("Failed to create thread (retry)", (retryThreadResponse as { message: string }).message);
+		return {
+			responseText: outputText,
+			responseId: data.id || ""
+		};
+	}
+
+	private extractResponseText(data: Record<string, unknown>): string | null {
+		const outputText = data.output_text;
+		if (typeof outputText === "string" && outputText.trim().length > 0) {
+			return outputText;
+		}
+
+		const output = data.output;
+		if (!Array.isArray(output)) {
+			return null;
+		}
+
+		for (const item of output) {
+			if (!item || typeof item !== "object") {
+				continue;
+			}
+
+			const itemType = (item as Record<string, unknown>).type;
+			if (itemType !== "message") {
+				continue;
+			}
+
+			const content = (item as Record<string, unknown>).content;
+			if (!Array.isArray(content)) {
+				continue;
+			}
+
+			for (const part of content) {
+				if (!part || typeof part !== "object") {
+					continue;
+				}
+
+				const partRecord = part as Record<string, unknown>;
+				if (partRecord.type === "output_text" && typeof partRecord.text === "string") {
+					return partRecord.text;
+				}
+			}
 		}
 
 		return null;
-	}
-
-	/**
-	 * Send initial question to establish context
-	 */
-	private async sendInitialQuestion(
-		assistantId: string,
-		threadId: string,
-		termsFileId: string,
-		contextFileId: string
-	): Promise<void> {
-		const termTypesFileName = "TermTypes.txt";
-		const contextTypesFileName = "ContextTypes.txt";
-    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
-
-		const initialQuestion = getInitialQuestionPrompt(
-      sourceLanguage,
-      termTypesFileName,
-      contextTypesFileName,
-      termsFileId,
-      contextFileId
-    );
-
-		await this.askAssistant(assistantId, threadId, initialQuestion);
-	}
-
-	/**
-	 * Send additional instructions for JSON response format
-	 */
-	private async sendAdditionalInstructions(
-		assistantId: string,
-		threadId: string,
-		termsFileId: string,
-		contextFileId: string
-	): Promise<void> {
-		const termTypesFileName = "TermTypes.txt";
-		const contextTypesFileName = "ContextTypes.txt";
-    const sourceLanguage = this.settings.sourceLanguage || "Spanish";
-
-    const additionalInstructions = getAdditionalInstructionsPrompt(
-      sourceLanguage,
-      termTypesFileName,
-      contextTypesFileName,
-      termsFileId,
-      contextFileId
-    );
-
-		await this.askAssistant(assistantId, threadId, additionalInstructions);
-	}
-
-	/**
-	 * Ask a question to the assistant (core method based on legacy askAssistant)
-	 */
-	private async askAssistant(
-		assistantId: string,
-		threadId: string,
-		question: string
-	): Promise<string | null> {
-		console.log("Asking assistant:", question.substring(0, 100) + "...");
-
-		try {
-			// Add message to thread
-			await fetch(`${OPENAI_BASE_URL}/threads/${threadId}/messages`, {
-				method: "POST",
-				headers: {
-					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-					"Content-Type": "application/json",
-					"OpenAI-Beta": "assistants=v2",
-				},
-				body: JSON.stringify({
-					role: "user",
-					content: question,
-				}),
-			});
-
-			console.log(`Message sent to thread ${threadId}`);
-
-			// Run the assistant
-			const runResponse = await fetch(`${OPENAI_BASE_URL}/threads/${threadId}/runs`, {
-				method: "POST",
-				headers: {
-					"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-					"Content-Type": "application/json",
-					"OpenAI-Beta": "assistants=v2",
-				},
-				body: JSON.stringify({
-					assistant_id: assistantId,
-				}),
-			});
-
-			const runData = await runResponse.json();
-			console.log("Run started:", runData);
-
-			if (runData.error) {
-				console.error("Run error:", runData.error);
-				return null;
-			}
-
-			const runId = runData.id;
-
-			// Poll for completion
-			let status = "in_progress";
-			let runStatusData: { status: string; last_error?: { code: string } } = { status: "" };
-
-			while (status === "in_progress" || status === "queued") {
-				await this.sleep(2000);
-
-				const statusResponse = await fetch(
-					`${OPENAI_BASE_URL}/threads/${threadId}/runs/${runId}`,
-					{
-						method: "GET",
-						headers: {
-							"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-							"OpenAI-Beta": "assistants=v2",
-						},
-					}
-				);
-
-				runStatusData = await statusResponse.json();
-				status = runStatusData.status;
-				console.log("Run status:", status);
-			}
-
-			// Handle failed run
-			if (status === "failed") {
-				const errorCode = runStatusData.last_error?.code;
-				console.error("Run failed:", runStatusData.last_error);
-				if (errorCode === "rate_limit_exceeded") {
-					return "rate_limit_exceeded";
-				}
-				return null;
-			}
-
-			if (status !== "completed") {
-				console.error(`Run did not complete. Status: ${status}`);
-				return null;
-			}
-
-			// Get messages
-			const messagesResponse = await fetch(
-				`${OPENAI_BASE_URL}/threads/${threadId}/messages`,
-				{
-					method: "GET",
-					headers: {
-						"Authorization": `Bearer ${this.settings.openAIApiKey}`,
-						"OpenAI-Beta": "assistants=v2",
-					},
-				}
-			);
-
-			const messagesData = await messagesResponse.json();
-			const assistantMessages = messagesData.data?.filter(
-				(msg: { role: string }) => msg.role === "assistant"
-			);
-
-			if (assistantMessages && assistantMessages.length > 0) {
-				const responseText = assistantMessages[0].content[0]?.text?.value;
-				console.log("Assistant response received");
-				return responseText || null;
-			}
-
-			console.log("No assistant response found");
-			return null;
-
-		} catch (error) {
-			console.error("Error asking assistant:", error);
-			return null;
-		}
-	}
-
-	/**
-	 * Sleep helper
-	 */
-	private sleep(ms: number): Promise<void> {
-		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 }

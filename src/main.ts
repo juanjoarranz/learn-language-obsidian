@@ -206,7 +206,52 @@ export default class LearnLanguagePlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loadedData = await this.loadData();
+		const merged = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+
+		const rawAskTermAssistant =
+			(loadedData as Partial<LearnLanguageSettings> | null | undefined)?.askTermAssistant as
+				| Record<string, unknown>
+				| undefined;
+
+		const normalizedAskTermAssistant = {
+			...DEFAULT_SETTINGS.askTermAssistant,
+			updateTermsStructure:
+				typeof rawAskTermAssistant?.updateTermsStructure === "boolean"
+					? rawAskTermAssistant.updateTermsStructure
+					: DEFAULT_SETTINGS.askTermAssistant.updateTermsStructure,
+			updateContextStructure:
+				typeof rawAskTermAssistant?.updateContextStructure === "boolean"
+					? rawAskTermAssistant.updateContextStructure
+					: DEFAULT_SETTINGS.askTermAssistant.updateContextStructure,
+			jsonResponse:
+				typeof rawAskTermAssistant?.jsonResponse === "boolean"
+					? rawAskTermAssistant.jsonResponse
+					: DEFAULT_SETTINGS.askTermAssistant.jsonResponse,
+			termsFileId:
+				typeof rawAskTermAssistant?.termsFileId === "string"
+					? rawAskTermAssistant.termsFileId
+					: DEFAULT_SETTINGS.askTermAssistant.termsFileId,
+			contextFileId:
+				typeof rawAskTermAssistant?.contextFileId === "string"
+					? rawAskTermAssistant.contextFileId
+					: DEFAULT_SETTINGS.askTermAssistant.contextFileId,
+			vectorStoreId:
+				typeof rawAskTermAssistant?.vectorStoreId === "string"
+					? rawAskTermAssistant.vectorStoreId
+					: DEFAULT_SETTINGS.askTermAssistant.vectorStoreId,
+			previousResponseId:
+				typeof rawAskTermAssistant?.previousResponseId === "string"
+					? rawAskTermAssistant.previousResponseId
+					: DEFAULT_SETTINGS.askTermAssistant.previousResponseId,
+		};
+
+		this.settings = {
+			...merged,
+			askTermAssistant: normalizedAskTermAssistant,
+		};
+
+		await this.saveData(this.settings);
 	}
 
 	async saveSettings(): Promise<void> {
@@ -291,14 +336,14 @@ export default class LearnLanguagePlugin extends Plugin {
 
 		// Reset OpenAI Thread
 		this.addCommand({
-			id: "reset-openai-thread",
+			id: "reset-openai-conversation",
 			name: "Reset OpenAI Conversation",
 			callback: async () => {
 				if (!this.openAIService.isConfigured()) {
 					new Notice("OpenAI API key not configured.");
 					return;
 				}
-				await this.openAIService.resetThread();
+				await this.openAIService.resetConversation();
 				await this.saveSettings();
 				new Notice("OpenAI conversation reset!");
 			},

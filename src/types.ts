@@ -158,14 +158,11 @@ export interface LearnLanguageSettings {
   askTermAssistant: {
     updateTermsStructure: boolean;
     updateContextStructure: boolean;
-    updateAssistantId: boolean;
-    isInitialQuestion: boolean;
-    withAdditionalInstructions: boolean;
     jsonResponse: boolean;
     termsFileId: string,
     contextFileId: string,
-    assistantId: string,
-    threadId: string
+		vectorStoreId: string,
+		previousResponseId: string
   }
 
 	// Display settings
@@ -194,14 +191,11 @@ export const DEFAULT_SETTINGS: LearnLanguageSettings = {
   askTermAssistant: {
     updateTermsStructure: true,
     updateContextStructure: true,
-    updateAssistantId: true,
-    isInitialQuestion: true,
-    withAdditionalInstructions: true,
     jsonResponse: true,
     termsFileId: "",
     contextFileId: "",
-    assistantId: "",
-    threadId: ""
+		vectorStoreId: "",
+		previousResponseId: ""
   },
 
 	defaultPageSize: 100,
@@ -213,17 +207,14 @@ export const DEFAULT_SETTINGS: LearnLanguageSettings = {
 // OpenAI Types
 // ============================================
 
-export interface OpenAIAssistantConfig {
+export interface OpenAIResponsesConfig {
 	updateTermsStructure: boolean;
 	updateContextStructure: boolean;
-	updateAssistantId: boolean;
-	isInitialQuestion: boolean;
-	withAdditionalInstructions: boolean;
 	jsonResponse: boolean;
 	termsFileId: string;
 	contextFileId: string;
-	assistantId: string;
-	threadId: string;
+	vectorStoreId: string;
+	previousResponseId: string;
 }
 
 export type AITermRating = "#⭐⭐⭐" | "#⭐⭐" | "#⭐";
